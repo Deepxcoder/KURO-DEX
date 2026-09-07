@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poké-Pomo & Task Dex</title>
+    <!-- Google Fonts for Retro Pixel Headings & Monospace Digits -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="widget.css">
+</head>
+<body class="theme-charizard">
+    <div class="poke-widget-container" id="widget-container">
+        <!-- ========================================== -->
+        <!-- TOP DRAG HANDLE & TITLE BAR -->
+        <!-- ========================================== -->
+        <header class="drag-titlebar" id="drag-handle" title="Drag to reposition">
+            <span class="pixel-badge">POKÉ-POMO & TASK DEX</span>
+        </header>
+
+        <!-- ========================================== -->
+        <!-- TWO-COLUMN MAIN GRID -->
+        <!-- ========================================== -->
+        <main class="poke-grid">
+            <!-- ========================================== -->
+            <!-- LEFT COLUMN: POMODORO TIMER -->
+            <!-- ========================================== -->
+            <section class="pomo-column">
+                <!-- Pixel Pokémon Sprite Display -->
+                <div class="sprite-display" id="sprite-display" title="Active Focus Companion">
+                    <div class="sprite-art-wrapper" id="sprite-wrapper">
+                        <!-- Dynamic SVG Pixel Companion injected via widget.js -->
+                    </div>
+                    <div class="sprite-pedestal"></div>
+                </div>
+
+                <!-- Digital Readout Display & Duration Selector -->
+                <div class="timer-readout-wrap" id="timer-readout-wrap" title="Click to change focus duration">
+                    <div class="timer-readout" id="timer-readout">25:00</div>
+                    <div class="timer-sublabel" id="timer-sublabel">FOCUS STAGE ▾</div>
+                    <!-- Duration Quick-Select Popover -->
+                    <div class="duration-popover hidden" id="duration-popover">
+                        <button class="duration-select-btn" data-minutes="25">⚡ 25 MIN</button>
+                        <button class="duration-select-btn" data-minutes="45">🔥 45 MIN</button>
+                        <button class="duration-select-btn" data-minutes="60">⚔️ 60 MIN</button>
+                        <button class="duration-select-btn" data-minutes="90">👑 90 MIN</button>
+                    </div>
+                </div>
+
+                <!-- Timer Controls & Actions -->
+                <div class="timer-controls-row">
+                    <button id="timer-start-btn" class="pixel-btn primary-btn">START</button>
+                    <button id="timer-reset-btn" class="pixel-btn secondary-btn">RESET</button>
+                    <div class="break-popover-container">
+                        <button id="timer-break-btn" class="pixel-btn break-btn">BREAK ▾</button>
+                        <!-- Break Quick-Select Popover -->
+                        <div class="break-popover hidden" id="break-popover">
+                            <button class="break-select-btn" data-minutes="5">⚡ 5 MINS</button>
+                            <button class="break-select-btn" data-minutes="10">☕ 10 MINS</button>
+                            <button class="break-select-btn" data-minutes="15">🔥 15 MINS</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Context-Aware "End Task Early" Button -->
+                <div class="early-action-wrap">
+                    <button id="end-task-early-btn" class="pixel-btn early-btn hidden" title="Finish Task Early & Log Elapsed Minutes">END TASK EARLY</button>
+                </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- RIGHT COLUMN: TASKS DEX -->
+            <!-- ========================================== -->
+            <section class="dex-column">
+                <div class="column-header">
+                    <span class="section-tag">TASKS DEX</span>
+                    <span class="dex-counter" id="dex-counter">0/0 CAUGHT</span>
+                </div>
+
+                <!-- Vertical Checklist of Tasks -->
+                <div class="dex-list-wrapper">
+                    <ul class="dex-task-list" id="dex-task-list">
+                        <!-- Injected dynamically -->
+                    </ul>
+                </div>
+
+                <!-- Bottom Add Task Input -->
+                <form class="dex-add-form" id="dex-add-form">
+                    <input type="text" id="dex-task-input" class="dex-input" placeholder="+ Enter task..." autocomplete="off" required>
+                    <button type="submit" class="pixel-btn add-btn">ADD</button>
+                </form>
+            </section>
+        </main>
+
+        <!-- Pomodoro Completion Prompt Modal Overlay -->
+        <div id="completion-modal" class="completion-overlay hidden">
+            <div class="completion-card">
+                <div class="completion-header">
+                    <span class="completion-badge">⚡ POMODORO FINISHED!</span>
+                    <button type="button" class="completion-close-btn" id="completion-close-btn" title="Dismiss">✕</button>
+                </div>
+
+                <div class="completion-body">
+                    <div class="completion-task-box">
+                        <div class="completion-task-label">CURRENT TASK</div>
+                        <div class="completion-task-name" id="completion-task-name">Active Task</div>
+                        <div class="completion-time-tag" id="completion-time-tag">Focused for 25m</div>
+                    </div>
+
+                    <div class="completion-prompt-text">Is this task complete?</div>
+
+                    <div class="completion-actions-row">
+                        <button type="button" id="task-complete-btn" class="pixel-btn primary-btn action-complete-btn">✓ COMPLETE</button>
+                        
+                        <div class="extend-dropdown-wrap" id="extend-dropdown-wrap">
+                            <button type="button" id="task-extend-btn" class="pixel-btn extend-btn">+10 MIN ▾</button>
+                            <div class="extend-popover hidden" id="extend-popover">
+                                <button type="button" class="extend-select-btn" data-minutes="10">⚡ +10 MINS</button>
+                                <button type="button" class="extend-select-btn" data-minutes="20">🔥 +20 MINS</button>
+                                <button type="button" class="extend-select-btn" data-minutes="30">👑 +30 MINS</button>
+                            </div>
+                        </div>
+
+                        <button type="button" id="task-break-btn" class="pixel-btn secondary-btn action-break-btn" title="Rest before continuing (auto-restarts focus)">☕ BREAK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Toast -->
+        <div id="poke-toast" class="poke-toast hidden">SESSION SAVED TO OBSIDIAN</div>
+    </div>
+
+    <script src="widget.js"></script>
+</body>
+</html>

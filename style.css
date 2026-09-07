@@ -1,0 +1,771 @@
+/* ==========================================================================
+   Monochromatic & Dynamic Pokémon Theme Architecture (Sleek Dark Mode)
+   ========================================================================== */
+
+:root {
+    --bg-color: #000000;
+    --panel-bg: #0a0a0a;
+    --border-color: #262626;
+    --border-muted: #1c1c1c;
+    --text-primary: #ffffff;
+    --text-muted: #737373;
+    --font-mono: 'JetBrains Mono', 'Courier New', Courier, monospace;
+
+    /* Theme Tokens (Default) */
+    --accent-color: #ffffff;
+    --accent-glow: rgba(255, 255, 255, 0.2);
+    --button-hover: #ffffff;
+    --button-hover-text: #000000;
+    --widget-glow: 0 0 25px rgba(255, 255, 255, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   Pokémon Theme Definitions (High-Contrast Neon Accents over Deep Black)
+   -------------------------------------------------------------------------- */
+
+/* Default Monochrome Theme */
+body.theme-default {
+    --accent-color: #ffffff;
+    --accent-glow: rgba(255, 255, 255, 0.25);
+    --button-hover: #ffffff;
+    --button-hover-text: #000000;
+    --widget-glow: 0 0 25px rgba(255, 255, 255, 0.08);
+}
+
+/* Pikachu Theme: High-Contrast Neon Electric Yellow */
+body.theme-pikachu {
+    --accent-color: #FFE600;
+    --accent-glow: rgba(255, 230, 0, 0.35);
+    --button-hover: #FFE600;
+    --button-hover-text: #000000;
+    --widget-glow: 0 0 30px rgba(255, 230, 0, 0.14);
+}
+
+/* Charizard Theme: Vibrant Fiery Orange */
+body.theme-charizard {
+    --accent-color: #FF4500;
+    --accent-glow: rgba(255, 69, 0, 0.35);
+    --button-hover: #FF4500;
+    --button-hover-text: #000000;
+    --widget-glow: 0 0 30px rgba(255, 69, 0, 0.16);
+}
+
+/* Gengar Theme: Deep Neon Shadow Purple */
+body.theme-gengar {
+    --accent-color: #A855F7;
+    --accent-glow: rgba(168, 85, 247, 0.4);
+    --button-hover: #A855F7;
+    --button-hover-text: #000000;
+    --widget-glow: 0 0 30px rgba(168, 85, 247, 0.16);
+}
+
+/* --------------------------------------------------------------------------
+   Global Reset & Structure (Strictly 0px Sharp Geometry)
+   -------------------------------------------------------------------------- */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border-radius: 0 !important; /* Strictly sharp corners */
+    font-family: var(--font-mono);
+}
+
+/* Enforce no-drag on all clickable elements */
+button,
+input,
+select,
+textarea,
+a,
+.win-btn,
+.theme-dot,
+.mode-btn,
+.btn,
+.todo-checkbox,
+.delete-btn,
+.no-drag {
+    -webkit-app-region: no-drag !important;
+}
+
+body {
+    background-color: transparent; /* Allows Electron transparency */
+    color: var(--text-primary);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 10px;
+    overflow: hidden;
+    user-select: none;
+}
+
+.widget-container {
+    width: 100%;
+    max-width: 420px;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--widget-glow);
+    padding: 16px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+/* --------------------------------------------------------------------------
+   Visible Drag Handle & Header Controls
+   -------------------------------------------------------------------------- */
+
+.drag-handle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #040404;
+    border-bottom: 1px solid var(--border-muted);
+    padding: 3px 6px;
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    cursor: move;
+    -webkit-app-region: drag; /* Draggable widget handle */
+    margin: -10px -14px 4px -14px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.drag-handle:hover {
+    background-color: #111111;
+    color: var(--accent-color);
+}
+
+.drag-grip {
+    opacity: 0.6;
+    font-weight: 700;
+}
+
+.drag-title {
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    -webkit-app-region: drag; /* Draggable frameless window handle */
+}
+
+.header-main {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    -webkit-app-region: no-drag;
+}
+
+.widget-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+/* Skin Selector Dots */
+.theme-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    -webkit-app-region: no-drag;
+}
+
+.theme-dot {
+    width: 10px;
+    height: 10px;
+    background: transparent;
+    border: 1px solid #444444;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    -webkit-app-region: no-drag;
+}
+
+.theme-dot:hover {
+    transform: scale(1.2);
+}
+
+.theme-dot[data-theme="theme-default"] { background-color: #ffffff; }
+.theme-dot[data-theme="theme-pikachu"] { background-color: #FFE600; }
+.theme-dot[data-theme="theme-charizard"] { background-color: #FF4500; }
+.theme-dot[data-theme="theme-gengar"] { background-color: #A855F7; }
+
+.theme-dot.active {
+    border: 1px solid #ffffff;
+    box-shadow: 0 0 8px currentColor;
+    outline: 1px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    -webkit-app-region: no-drag;
+}
+
+.status-indicator {
+    font-size: 10px;
+    padding: 2px 7px;
+    border: 1px solid var(--accent-color);
+    background-color: var(--accent-color);
+    color: var(--button-hover-text);
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    transition: all 0.2s ease;
+}
+
+/* Frameless Window Controls */
+.window-controls {
+    display: flex;
+    gap: 4px;
+    -webkit-app-region: no-drag;
+}
+
+.win-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.win-btn:hover {
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+/* --------------------------------------------------------------------------
+   Timer Section
+   -------------------------------------------------------------------------- */
+
+.timer-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid var(--border-color);
+    padding: 16px;
+    background-color: #050505;
+}
+
+.timer-mode-selector {
+    display: flex;
+    width: 100%;
+    gap: 8px;
+}
+
+.mode-btn {
+    flex: 1;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    padding: 7px;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s ease;
+}
+
+.mode-btn.active {
+    background: var(--accent-color);
+    color: var(--button-hover-text);
+    border-color: var(--accent-color);
+    font-weight: 700;
+}
+
+.mode-btn:hover:not(.active) {
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+}
+
+.timer-display {
+    font-size: 58px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    margin: 2px 0;
+    color: var(--accent-color);
+    text-shadow: 0 0 20px var(--accent-glow);
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.timer-controls {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.btn {
+    flex: 1;
+    padding: 9px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1px;
+    border: 1px solid var(--border-color);
+    transition: all 0.15s ease;
+}
+
+.primary-btn {
+    background-color: var(--accent-color);
+    color: var(--button-hover-text);
+    border-color: var(--accent-color);
+}
+
+.primary-btn:hover:not(:disabled) {
+    background-color: transparent;
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.secondary-btn {
+    background-color: transparent;
+    color: var(--text-primary);
+}
+
+.secondary-btn:hover:not(:disabled) {
+    background-color: var(--accent-color);
+    color: var(--button-hover-text);
+    border-color: var(--accent-color);
+}
+
+.btn:disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+    border-color: var(--border-color);
+}
+
+.timer-stats {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 10px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-muted);
+    padding-top: 8px;
+}
+
+.timer-stats strong {
+    color: var(--text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   To-Do List Section
+   -------------------------------------------------------------------------- */
+
+.todo-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.section-title {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+}
+
+.todo-form {
+    display: flex;
+    gap: 8px;
+}
+
+.input-field {
+    flex: 1;
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 7px 10px;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.input-field:focus {
+    border-color: var(--accent-color);
+}
+
+.todo-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.todo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border: 1px solid var(--border-muted);
+    background: #000000;
+    font-size: 12px;
+    transition: border-color 0.15s ease;
+}
+
+.todo-item:hover {
+    border-color: var(--border-color);
+}
+
+.todo-item.completed .todo-text {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.todo-checkbox {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--accent-color);
+    background: transparent;
+    cursor: pointer;
+    margin-right: 10px;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+
+.todo-checkbox:checked {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.todo-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    color: var(--button-hover-text);
+    font-size: 10px;
+    top: -2px;
+    left: 2px;
+    font-weight: 900;
+}
+
+.todo-content {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    overflow: hidden;
+}
+
+.todo-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0 4px;
+    transition: color 0.15s ease;
+}
+
+.delete-btn:hover {
+    color: var(--accent-color);
+}
+
+/* --------------------------------------------------------------------------
+   Footer & Session Exporter
+   -------------------------------------------------------------------------- */
+
+.action-btn {
+    width: 100%;
+    background-color: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    transition: all 0.15s ease;
+}
+
+.action-btn:hover {
+    background-color: var(--accent-color);
+    color: var(--button-hover-text);
+    border-color: var(--accent-color);
+}
+
+.toast {
+    margin-top: 8px;
+    font-size: 10px;
+    text-align: center;
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    padding: 6px;
+    letter-spacing: 1px;
+    background-color: #000000;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Pin / Always-on-Top Button Style */
+#win-pin-btn {
+    opacity: 0.55;
+    transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+#win-pin-btn.pinned {
+    opacity: 1;
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    box-shadow: 0 0 6px var(--accent-glow);
+}
+
+/* Compact Task Bar (Hidden in standard expanded view) */
+.compact-task-bar {
+    display: none;
+}
+
+/* ==========================================================================
+   Compact Mode Architecture (320px x 115px Floating HUD)
+   ========================================================================== */
+
+body.compact-mode {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100vw;
+    height: 100vh;
+    min-height: 100vh;
+    overflow: hidden;
+    background-color: var(--panel-bg);
+}
+
+body.compact-mode .widget-container {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    padding: 4px 8px;
+    gap: 2px;
+    border: 1px solid var(--accent-color);
+    box-shadow: 0 0 15px var(--accent-glow);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+/* Hide non-essential sections in compact mode: only task, time, and pause/reset */
+body.compact-mode .todo-section,
+body.compact-mode .theme-selector,
+body.compact-mode .widget-footer,
+body.compact-mode .timer-mode-selector,
+body.compact-mode .timer-stats,
+body.compact-mode .widget-title,
+body.compact-mode #win-min-btn {
+    display: none !important;
+}
+
+/* Compact Drag Handle */
+body.compact-mode .drag-handle {
+    margin: -3px -7px 1px -7px;
+    padding: 1px 6px;
+    height: 13px;
+    font-size: 7.5px;
+    border-bottom: 1px solid var(--border-muted);
+}
+
+/* Compact Header */
+body.compact-mode .widget-header {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 1px;
+}
+
+body.compact-mode .header-main {
+    display: none;
+}
+
+body.compact-mode .header-right {
+    width: 100%;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+body.compact-mode .status-indicator {
+    font-size: 8px;
+    padding: 1px 4px;
+    letter-spacing: 0.5px;
+}
+
+body.compact-mode .win-btn {
+    width: 17px;
+    height: 17px;
+    font-size: 8.5px;
+}
+
+/* Compact Focus Task Bar */
+body.compact-mode .compact-task-bar {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 22px;
+    background-color: #0d0d10;
+    border: 1px solid var(--border-color);
+    padding: 1px 4px;
+    margin: 1px 0;
+    -webkit-app-region: no-drag;
+}
+
+.compact-task-form {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    gap: 4px;
+    align-items: center;
+}
+
+.compact-task-input {
+    flex: 1;
+    height: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 9px;
+    font-family: var(--font-mono);
+    padding: 0 4px;
+    -webkit-app-region: no-drag;
+}
+
+.compact-task-input::placeholder {
+    color: var(--text-muted);
+    font-size: 8px;
+    letter-spacing: 0.5px;
+}
+
+.compact-task-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--accent-color);
+    font-size: 11px;
+    font-weight: 700;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    -webkit-app-region: no-drag;
+}
+
+.compact-task-btn:hover {
+    background-color: var(--accent-color);
+    color: var(--button-hover-text);
+}
+
+.compact-task-active {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.compact-task-prefix {
+    font-size: 8px;
+    color: var(--text-muted);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.compact-task-text {
+    flex: 1;
+    font-size: 9px;
+    color: var(--accent-color);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.compact-task-action {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    font-size: 9px;
+    width: 17px;
+    height: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    -webkit-app-region: no-drag;
+}
+
+.compact-task-action.check-btn {
+    color: #00ff66;
+    border-color: rgba(0, 255, 102, 0.4);
+}
+
+.compact-task-action.check-btn:hover {
+    background-color: #00ff66;
+    color: #000000;
+}
+
+.compact-task-action.clear-btn {
+    color: var(--text-muted);
+}
+
+.compact-task-action.clear-btn:hover {
+    color: #ff3355;
+    border-color: #ff3355;
+}
+
+/* Compact Timer Section: Only Time & Pause/Reset shown */
+body.compact-mode .timer-section {
+    border: none;
+    padding: 0;
+    background: transparent;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 1px;
+}
+
+body.compact-mode .timer-display {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    line-height: 1;
+    margin: 0;
+    color: var(--accent-color);
+    text-shadow: 0 0 12px var(--accent-glow);
+}
+
+body.compact-mode .timer-controls {
+    display: flex;
+    gap: 3px;
+    flex-wrap: nowrap;
+}
+
+body.compact-mode .timer-controls .btn {
+    padding: 3px 6px;
+    font-size: 8.5px;
+    letter-spacing: 0.5px;
+    border-width: 1px;
+    min-width: 44px;
+    text-align: center;
+    -webkit-app-region: no-drag;
+}
+

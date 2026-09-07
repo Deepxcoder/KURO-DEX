@@ -1,0 +1,21 @@
+{
+  "name": "syncer-productivity-widget",
+  "version": "1.0.0",
+  "description": "Minimalist Desktop Productivity Widget with Obsidian Vault IPC Integration",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [
+    "electron",
+    "obsidian",
+    "pomodoro",
+    "productivity",
+    "widget"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.4.11"
+  }
+}
