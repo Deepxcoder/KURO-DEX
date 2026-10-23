@@ -4,7 +4,10 @@
   "description": "Minimalist Desktop Productivity Widget with Obsidian Vault IPC Integration",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "widget:start": "npm --prefix widget start",
+    "widget:build": "npm --prefix widget run build",
+    "widget:dist": "npm --prefix widget run dist"
   },
   "keywords": [
     "electron",

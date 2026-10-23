@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Manager</title>
+    <!-- Retro Pixel Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="manager.css">
+</head>
+<body>
+    <div class="manager-container">
+        <!-- Header -->
+        <header class="manager-header" id="manager-drag">
+            <div class="header-brand">
+                <span class="pixel-dot"></span>
+                <span class="header-title">WIDGET MANAGER</span>
+            </div>
+            <button class="close-btn" id="manager-close-btn" title="Close Panel">✕</button>
+        </header>
+
+        <!-- Controls Section -->
+        <section class="controls-section">
+            <!-- 1. Widget Visibility Toggle -->
+            <div class="control-row">
+                <div class="control-label-wrap">
+                    <span class="control-label">Widget Visibility</span>
+                    <span class="control-hint">Toggle Poké-Pomo Display</span>
+                </div>
+                <label class="switch-wrap">
+                    <input type="checkbox" id="visibility-toggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <!-- 2. Pin Widget Toggle (Always on Top) -->
+            <div class="control-row">
+                <div class="control-label-wrap">
+                    <span class="control-label">Pin Widget</span>
+                    <span class="control-hint">Always on Top</span>
+                </div>
+                <label class="switch-wrap">
+                    <input type="checkbox" id="pin-toggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <!-- 3. Default Theme Select -->
+            <div class="control-row">
+                <div class="control-label-wrap">
+                    <span class="control-label">Default Theme</span>
+                    <span class="control-hint">Companion & Palette</span>
+                </div>
+                <div class="select-wrapper">
+                    <select id="theme-select" class="stylized-select">
+                        <option value="charizard">Charizard (Flame)</option>
+                        <option value="pikachu">Pikachu (Volt)</option>
+                        <option value="gengar">Gengar (Shadow)</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Telemetry Display Section -->
+        <section class="telemetry-section">
+            <div class="telemetry-box">
+                <div class="telemetry-header">SYSTEM TELEMETRY</div>
+                <div class="metric-primary" id="metric-primary">
+                    TOTAL CPU: --.-% | RAM: --- MB
+                </div>
+                <div class="telemetry-divider"></div>
+                <div class="metric-sub" id="metric-sub">
+                    Task Dex Usage: CPU -.-% | RAM -- MB
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="manager.js"></script>
+</body>
+</html>

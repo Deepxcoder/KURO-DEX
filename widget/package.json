@@ -1,0 +1,55 @@
+{
+  "name": "pokepomo-taskdex",
+  "version": "1.0.0",
+  "description": "Poké-Pomo & Task Dex — Desktop Productivity Widget",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable",
+    "dist": "electron-builder --win nsis",
+    "pack": "electron-builder --dir"
+  },
+  "keywords": [
+    "electron",
+    "obsidian",
+    "pomodoro",
+    "productivity",
+    "widget",
+    "pokemon"
+  ],
+  "author": "Deepxcoder",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.deepx.pokepomo",
+    "productName": "Poké-Pomo & Task Dex",
+    "copyright": "Copyright © 2026 Deepxcoder",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "Poke-Pomo-TaskDex-Portable.exe"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "widget.html",
+      "widget.css",
+      "widget.js",
+      "manager.html",
+      "manager.css",
+      "manager.js",
+      "icon.ico",
+      "attach_to_desktop.py"
+    ]
+  }
+}
