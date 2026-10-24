@@ -3,6 +3,7 @@ Windows PC Activity Logger
 Local AI Productivity Tracking System
 
 Tracks active window titles, process names, and user activity state (Active/Idle).
+Uses native Win32 GetLastInputInfo for zero-overhead, hook-free idle detection.
 Outputs daily JSON Lines (.jsonl) log files into the Obsidian Vault Inbox.
 """
 
@@ -10,7 +11,6 @@ import ctypes
 import datetime
 import json
 import logging
-import os
 from pathlib import Path
 import signal
 import sys
@@ -19,7 +19,6 @@ from typing import Dict, Any, Tuple
 
 import psutil
 import pygetwindow as gw
-from pynput import keyboard, mouse
 
 # Configure logger
 logging.basicConfig(
@@ -33,15 +32,31 @@ logger = logging.getLogger("PCLogger")
 IDLE_THRESHOLD_SECONDS = 180  # 3 minutes of no user input -> Idle
 LOG_INTERVAL_SECONDS = 300     # 5 minutes logging frequency
 
-# Global input tracking state
-last_input_time = time.time()
 running = True
+last_input_time = time.time()
 
 
-def on_input_activity(*args, **kwargs) -> None:
-    """Callback to update last activity timestamp on mouse or keyboard interaction."""
-    global last_input_time
-    last_input_time = time.time()
+class LASTINPUTINFO(ctypes.Structure):
+    _fields_ = [("cbSize", ctypes.c_uint), ("dwTime", ctypes.c_uint)]
+
+
+def get_idle_seconds() -> float:
+    """
+    Returns number of seconds since last user keyboard or mouse interaction.
+    Uses Win32 GetLastInputInfo (hook-free, 0% CPU overhead).
+    """
+    if sys.platform == "win32":
+        try:
+            lii = LASTINPUTINFO()
+            lii.cbSize = ctypes.sizeof(LASTINPUTINFO)
+            if ctypes.windll.user32.GetLastInputInfo(ctypes.byref(lii)):
+                # GetTickCount returns milliseconds since system startup
+                millis = ctypes.windll.kernel32.GetTickCount() - lii.dwTime
+                return max(0.0, millis / 1000.0)
+        except Exception as e:
+            logger.debug(f"Win32 GetLastInputInfo error: {e}")
+
+    return max(0.0, time.time() - last_input_time)
 
 
 def get_active_window_details() -> Tuple[str, str]:
@@ -89,8 +104,9 @@ def load_inbox_path() -> Path:
                 inbox_str = config.get("paths", {}).get("inbox")
                 if inbox_str:
                     inbox_path = Path(inbox_str)
-                    inbox_path.mkdir(parents=True, exist_ok=True)
-                    return inbox_path
+                    if inbox_path.exists() or inbox_path.parent.exists():
+                        inbox_path.mkdir(parents=True, exist_ok=True)
+                        return inbox_path
         except Exception as e:
             logger.warning(f"Could not parse config.json: {e}")
 
@@ -114,15 +130,16 @@ def log_activity_entry(inbox_dir: Path) -> None:
 
     window_title, process_name = get_active_window_details()
 
-    # Determine status based on idle threshold
-    time_since_input = time.time() - last_input_time
-    status = "Idle" if time_since_input >= IDLE_THRESHOLD_SECONDS else "Active"
+    # Determine status based on idle duration
+    idle_seconds = get_idle_seconds()
+    status = "Idle" if idle_seconds >= IDLE_THRESHOLD_SECONDS else "Active"
 
     log_entry: Dict[str, Any] = {
         "timestamp": iso_timestamp,
         "window_title": window_title,
         "process_name": process_name,
-        "status": status
+        "status": status,
+        "idle_seconds": round(idle_seconds, 1)
     }
 
     log_file = get_log_file_path(inbox_dir)
@@ -131,7 +148,7 @@ def log_activity_entry(inbox_dir: Path) -> None:
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
             f.flush()
-        logger.info(f"Logged [{status}]: {process_name} | '{window_title[:40]}' -> {log_file.name}")
+        logger.info(f"Logged [{status} - {round(idle_seconds)}s idle]: {process_name} | '{window_title[:40]}' -> {log_file.name}")
     except OSError as e:
         logger.error(f"Failed writing to log file {log_file}: {e}")
 
@@ -151,23 +168,8 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
 
     inbox_dir = load_inbox_path()
-    logger.info(f"Starting PC Activity Logger. Inbox path: {inbox_dir}")
+    logger.info(f"Starting PC Activity Logger (Win32 Native Hook-Free Mode). Inbox: {inbox_dir}")
     logger.info(f"Log Interval: {LOG_INTERVAL_SECONDS}s | Idle Threshold: {IDLE_THRESHOLD_SECONDS}s")
-
-    # Start pynput listeners in non-blocking background threads
-    mouse_listener = mouse.Listener(
-        on_move=on_input_activity,
-        on_click=on_input_activity,
-        on_scroll=on_input_activity
-    )
-    keyboard_listener = keyboard.Listener(
-        on_press=on_input_activity
-    )
-
-    mouse_listener.start()
-    keyboard_listener.start()
-
-    logger.info("Activity listeners active. Logger running in background...")
 
     try:
         last_log_time = 0.0
@@ -183,8 +185,6 @@ def main():
         logger.critical(f"Unexpected error in main loop: {e}", exc_info=True)
 
     finally:
-        mouse_listener.stop()
-        keyboard_listener.stop()
         logger.info("PC Logger stopped gracefully.")
 
 

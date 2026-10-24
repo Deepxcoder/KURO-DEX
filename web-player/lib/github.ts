@@ -15,12 +15,30 @@ export function getGitHubConfig(): GitHubConfig {
     token: process.env.GITHUB_TOKEN?.trim(),
     owner: process.env.REPO_OWNER?.trim() || 'Deepxcoder',
     repo: process.env.REPO_NAME?.trim() || 'KURO-DEX',
-    path: process.env.FILE_PATH?.trim() || 'web/data/Workout.sample.md',
+    path: process.env.FILE_PATH?.trim() || 'web-player/data/Workout.sample.md',
     branch: process.env.FILE_BRANCH?.trim() || 'main'
   };
 }
 
-const OBSIDIAN_WORKOUT_PATH = 'C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian Vault\\Personal\\Workout.md';
+const OBSIDIAN_VAULT_ROOT = process.env.OBSIDIAN_VAULT || 'C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian Vault';
+
+const OBSIDIAN_WORKOUT_CANDIDATES = [
+  process.env.OBSIDIAN_WORKOUT_PATH,
+  path.join(OBSIDIAN_VAULT_ROOT, 'Personal', 'Workout.md'),
+  path.join(OBSIDIAN_VAULT_ROOT, 'Workout.md'),
+  path.join(process.cwd(), '..', 'vault', 'Workout.md'),
+  path.join(process.cwd(), 'data', 'Workout.sample.md'),
+  path.join(process.cwd(), 'web-player', 'data', 'Workout.sample.md')
+];
+
+function getResolvedObsidianWorkoutPath(): string | null {
+  for (const candidate of OBSIDIAN_WORKOUT_CANDIDATES) {
+    if (candidate && fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
 
 /**
  * Fetches raw Workout.md from Obsidian Vault or GitHub or fallback
@@ -28,8 +46,9 @@ const OBSIDIAN_WORKOUT_PATH = 'C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian V
 export async function fetchWorkoutFile(): Promise<{ content: string; sha?: string; source: 'github' | 'local' }> {
   // 1. Direct Obsidian Vault integration (preferred)
   try {
-    if (fs.existsSync(OBSIDIAN_WORKOUT_PATH)) {
-      const content = fs.readFileSync(OBSIDIAN_WORKOUT_PATH, 'utf-8');
+    const livePath = getResolvedObsidianWorkoutPath();
+    if (livePath) {
+      const content = fs.readFileSync(livePath, 'utf-8');
       return {
         content,
         sha: `local-obsidian-${Date.now()}`,
@@ -152,11 +171,12 @@ export async function commitWorkoutFile(
 
   // 1. Direct Obsidian Vault write (preferred)
   try {
-    if (fs.existsSync(OBSIDIAN_WORKOUT_PATH)) {
-      fs.writeFileSync(OBSIDIAN_WORKOUT_PATH, content, 'utf-8');
-      // Also sync local backup sample file
+    const livePath = getResolvedObsidianWorkoutPath();
+    if (livePath) {
+      fs.writeFileSync(livePath, content, 'utf-8');
+      // Also sync local backup sample file if different
       const backupPath = path.resolve(process.cwd(), 'data/Workout.sample.md');
-      if (fs.existsSync(backupPath)) {
+      if (fs.existsSync(backupPath) && backupPath !== livePath) {
         try { fs.writeFileSync(backupPath, content, 'utf-8'); } catch {}
       }
       return {
@@ -173,7 +193,7 @@ export async function commitWorkoutFile(
   const localCandidates = [
     path.resolve(process.cwd(), config.path),
     path.resolve(process.cwd(), 'data/Workout.sample.md'),
-    path.resolve(process.cwd(), 'web/data/Workout.sample.md')
+    path.resolve(process.cwd(), 'web-player/data/Workout.sample.md')
   ];
 
   for (const candidate of localCandidates) {

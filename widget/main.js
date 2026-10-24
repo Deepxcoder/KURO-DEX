@@ -144,6 +144,8 @@ function resolveObsidianDailyDir() {
     }
 
     if (!app.isPackaged) {
+        const vaultDaily = path.join(__dirname, '..', 'vault', '01_Daily');
+        if (fs.existsSync(vaultDaily)) return vaultDaily;
         const parentDaily = path.join(__dirname, '..', '01_Daily');
         if (fs.existsSync(parentDaily)) return parentDaily;
         const localDaily = path.join(__dirname, '01_Daily');
@@ -176,6 +178,8 @@ function resolveObsidianMdPath() {
 
     // Parent todo fallback (only outside packaged asar)
     if (!app.isPackaged) {
+        const vaultTodo = path.join(__dirname, '..', 'vault', 'todo.md');
+        if (fs.existsSync(vaultTodo)) return vaultTodo;
         const parentTodo = path.join(__dirname, '..', 'todo.md');
         if (fs.existsSync(parentTodo)) return parentTodo;
     }
@@ -1150,7 +1154,15 @@ ipcMain.on('manager-close', () => {
     if (managerWindow && !managerWindow.isDestroyed()) managerWindow.hide();
 });
 
-// Window Dragging & Positioning Handlers
+// Window Dragging & Positioning Handlers (both send and invoke supported)
+ipcMain.on('move-window-delta', (event, { dx, dy }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+        const [x, y] = win.getPosition();
+        win.setPosition(Math.round(x + (dx || 0)), Math.round(y + (dy || 0)));
+    }
+});
+
 ipcMain.handle('move-window-delta', (event, { dx, dy }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win && !win.isDestroyed()) {

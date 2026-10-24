@@ -2,6 +2,11 @@
   "name": "kurodex-monorepo",
   "version": "1.0.0",
   "description": "KURO-DEX Monorepo: Desktop Productivity HUD, Workout Web Player, Glassmorphic Analytics Website, and Obsidian Vault Automation",
+  "workspaces": [
+    "widget",
+    "web-player",
+    "website"
+  ],
   "scripts": {
     "widget": "npm --prefix widget start",
     "widget:start": "npm --prefix widget start",
@@ -17,6 +22,7 @@
     "web:start": "npm --prefix web-player start",
     "website": "npm --prefix website start",
     "website:dev": "npm --prefix website run dev",
+    "test:parsers": "npm --prefix website run test:parsers",
     "start": "npm --prefix widget start"
   },
   "keywords": [

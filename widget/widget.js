@@ -1135,6 +1135,9 @@ const PokePomo = {
             let isDragging = false;
             let lastScreenX = 0;
             let lastScreenY = 0;
+            let pendingDx = 0;
+            let pendingDy = 0;
+            let rafId = null;
 
             el.addEventListener('pointerdown', (e) => {
                 if (e.button !== 0) return;
@@ -1146,6 +1149,8 @@ const PokePomo = {
                 isDragging = true;
                 lastScreenX = e.screenX;
                 lastScreenY = e.screenY;
+                pendingDx = 0;
+                pendingDy = 0;
 
                 try {
                     el.setPointerCapture(e.pointerId);
@@ -1157,16 +1162,35 @@ const PokePomo = {
                 if (!isDragging) return;
                 const dx = e.screenX - lastScreenX;
                 const dy = e.screenY - lastScreenY;
-                if (dx !== 0 || dy !== 0) {
-                    lastScreenX = e.screenX;
-                    lastScreenY = e.screenY;
-                    api.moveWindowDelta(dx, dy);
+                lastScreenX = e.screenX;
+                lastScreenY = e.screenY;
+                pendingDx += dx;
+                pendingDy += dy;
+
+                if (!rafId && (pendingDx !== 0 || pendingDy !== 0)) {
+                    rafId = requestAnimationFrame(() => {
+                        if (pendingDx !== 0 || pendingDy !== 0) {
+                            api.moveWindowDelta(pendingDx, pendingDy);
+                            pendingDx = 0;
+                            pendingDy = 0;
+                        }
+                        rafId = null;
+                    });
                 }
             });
 
             const stopDrag = (e) => {
                 if (!isDragging) return;
                 isDragging = false;
+                if (rafId) {
+                    cancelAnimationFrame(rafId);
+                    rafId = null;
+                }
+                if (pendingDx !== 0 || pendingDy !== 0) {
+                    api.moveWindowDelta(pendingDx, pendingDy);
+                    pendingDx = 0;
+                    pendingDy = 0;
+                }
                 try {
                     el.releasePointerCapture(e.pointerId);
                 } catch (err) {}

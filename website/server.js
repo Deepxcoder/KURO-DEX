@@ -20,17 +20,35 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// File path resolution
-const DEFAULT_WORKOUT_PATH = 'C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian Vault\\Workout.md';
-const DEFAULT_TODO_PATH = "C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian Vault\\Todo's\\todo.md";
+// Dynamic file path resolution with multi-candidate search
+const OBSIDIAN_VAULT_ROOT = process.env.OBSIDIAN_VAULT || 'C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian Vault';
 
 const SAMPLE_WORKOUT_PATH = path.join(__dirname, 'data', 'Workout.sample.md');
 const SAMPLE_TODO_PATH = path.join(__dirname, 'data', 'todo.sample.md');
 
-const workoutFilePath = process.env.WORKOUT_FILE || (fs.existsSync(DEFAULT_WORKOUT_PATH) ? DEFAULT_WORKOUT_PATH : SAMPLE_WORKOUT_PATH);
-const todoFilePath = process.env.TODO_FILE || (fs.existsSync(DEFAULT_TODO_PATH) ? DEFAULT_TODO_PATH : SAMPLE_TODO_PATH);
+function findFirstExistingPath(candidates, fallback) {
+  for (const c of candidates) {
+    if (c && fs.existsSync(c)) return c;
+  }
+  return fallback;
+}
 
-const isUsingObsidianLive = workoutFilePath === DEFAULT_WORKOUT_PATH && todoFilePath === DEFAULT_TODO_PATH;
+const workoutFilePath = process.env.WORKOUT_FILE || findFirstExistingPath([
+  path.join(OBSIDIAN_VAULT_ROOT, 'Personal', 'Workout.md'),
+  path.join(OBSIDIAN_VAULT_ROOT, 'Workout.md'),
+  path.join(__dirname, '..', 'vault', 'Workout.md'),
+  path.join(__dirname, '..', 'web-player', 'data', 'Workout.sample.md')
+], SAMPLE_WORKOUT_PATH);
+
+const todoFilePath = process.env.TODO_FILE || findFirstExistingPath([
+  path.join(OBSIDIAN_VAULT_ROOT, 'Personal', 'todo.md'),
+  path.join(OBSIDIAN_VAULT_ROOT, 'Todo\'s', 'todo.md'),
+  path.join(OBSIDIAN_VAULT_ROOT, 'todo.md'),
+  path.join(__dirname, '..', 'vault', 'todo.md'),
+  path.join(__dirname, '..', 'web-player', 'data', 'todo.sample.md')
+], SAMPLE_TODO_PATH);
+
+const isUsingObsidianLive = workoutFilePath.startsWith(OBSIDIAN_VAULT_ROOT) || todoFilePath.startsWith(OBSIDIAN_VAULT_ROOT);
 
 let lastSyncTimestamp = new Date().toISOString();
 let cachedGymData = null;

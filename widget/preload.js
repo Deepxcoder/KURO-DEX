@@ -73,7 +73,7 @@ const electronAPI = {
     closeManager: () => ipcRenderer.send('manager-close'),
 
     // 7. Window Dragging & Position
-    moveWindowDelta: (dx, dy) => ipcRenderer.invoke('move-window-delta', { dx, dy }),
+    moveWindowDelta: (dx, dy) => ipcRenderer.send('move-window-delta', { dx, dy }),
     setWindowPosition: (x, y) => ipcRenderer.invoke('set-window-position', { x, y }),
     getWindowPosition: () => ipcRenderer.invoke('get-window-position'),
     saveWindowPosition: () => ipcRenderer.invoke('save-window-position')

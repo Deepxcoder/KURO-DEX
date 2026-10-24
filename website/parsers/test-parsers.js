@@ -46,11 +46,16 @@ if (gymData.sessions[0]) {
 }
 
 // 2. Test Work Parser with real file or sample
-const todoPath = "C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian Vault\\Todo's\\todo.md";
+const possibleTodoPaths = [
+  "C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian Vault\\Personal\\todo.md",
+  "C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian Vault\\Todo's\\todo.md",
+  "C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian Vault\\todo.md"
+];
+const todoPath = possibleTodoPaths.find(p => fs.existsSync(p));
 let todoContent = '';
-if (fs.existsSync(todoPath)) {
+if (todoPath) {
   todoContent = fs.readFileSync(todoPath, 'utf8');
-  console.log(`\n[OK] Loaded real todo.md (${todoContent.length} bytes)`);
+  console.log(`\n[OK] Loaded real todo.md from ${todoPath} (${todoContent.length} bytes)`);
 } else {
   console.log('\n[WARN] todo.md not found, using mock string');
   todoContent = `9/7/26

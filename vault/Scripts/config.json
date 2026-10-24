@@ -3,11 +3,11 @@
     "ollama_endpoint": "http://localhost:11434",
     "default_model": "llama3",
     "paths": {
-        "todo_folder": "C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian Vault\\Todo's",
-        "inbox": "D:\\Dev Work\\Projects\\Syncer\\00_Agent\\_Inbox",
-        "processing": "D:\\Dev Work\\Projects\\Syncer\\00_Agent\\_Processing",
-        "gym_logs": "D:\\Dev Work\\Projects\\Syncer\\00_Agent\\_Gym_Logs",
-        "daily_notes": "D:\\Dev Work\\Projects\\Syncer\\01_Daily",
-        "scripts": "D:\\Dev Work\\Projects\\Syncer\\Scripts"
+        "todo_folder": "C:\\Users\\deepx\\OneDrive\\Documents\\Obsidian Vault\\Personal",
+        "inbox": "D:\\Developer\\Projects\\Syncer\\vault\\00_Agent\\_Inbox",
+        "processing": "D:\\Developer\\Projects\\Syncer\\vault\\00_Agent\\_Processing",
+        "gym_logs": "D:\\Developer\\Projects\\Syncer\\vault\\00_Agent\\_Gym_Logs",
+        "daily_notes": "D:\\Developer\\Projects\\Syncer\\vault\\01_Daily",
+        "scripts": "D:\\Developer\\Projects\\Syncer\\vault\\Scripts"
     }
 }
