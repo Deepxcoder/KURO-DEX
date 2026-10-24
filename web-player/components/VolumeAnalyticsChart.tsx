@@ -370,9 +370,89 @@ export const VolumeAnalyticsChart: React.FC<VolumeAnalyticsChartProps> = ({
       </header>
 
       {/* ============================================================== */}
+      {/* Active Session Inspection Strip (Positioned Above the Graph)    */}
+      {/* ============================================================== */}
+      {focalPoint && (
+        <div
+          className={`w-full shrink-0 mt-3 p-3 rounded-xl transition-all border flex flex-col md:flex-row items-start md:items-center justify-between gap-3 ${
+            isLight
+              ? 'bg-slate-50/90 border-slate-200/80 shadow-xs'
+              : 'bg-white/[0.03] border-white/[0.08] shadow-inner'
+          }`}
+        >
+          {/* Left: Focal Session Meta & Volume KPI */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 font-mono text-xs font-bold">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isLight ? 'bg-blue-600 shadow-[0_0_6px_rgba(37,99,235,0.4)]' : 'bg-cyan-400 shadow-[0_0_8px_#00E5FF]'
+                }`}
+              />
+              <span className={isLight ? 'text-slate-900' : 'text-white'}>
+                {focalPoint.data.dateStr}
+              </span>
+            </div>
+
+            <span
+              className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
+                isLight
+                  ? 'bg-blue-100/70 text-blue-800 border border-blue-200'
+                  : 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30'
+              }`}
+            >
+              {focalPoint.data.sessionRef.muscleSplit || 'Session'}
+            </span>
+
+            <div className="flex items-baseline gap-1.5 pl-1">
+              <span className={`text-xs ${isLight ? 'text-slate-500 font-medium' : 'text-slate-400'}`}>
+                {isAll ? 'Total Work Volume:' : `Total ${selectedMuscle.shortName} Volume:`}
+              </span>
+              <span
+                className={`font-mono text-base font-extrabold tracking-tight ${
+                  isLight ? 'text-blue-600' : 'text-cyan-300'
+                }`}
+              >
+                {focalPoint.data.displayVolume.toLocaleString()} <span className="text-xs font-semibold">kg</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Right: Exercise Breakdown Chips (Horizontal scrollable pill list) */}
+          <div className="flex items-center gap-2 overflow-x-auto max-w-full py-0.5 scrollbar-thin">
+            {focalPoint.data.exercises.length === 0 ? (
+              <span className={`italic text-[11px] ${isLight ? 'text-slate-400' : 'text-white/40'}`}>
+                No individual movements logged
+              </span>
+            ) : (
+              focalPoint.data.exercises.map((ex, ei) => (
+                <div
+                  key={ei}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium shrink-0 border transition-all ${
+                    isLight
+                      ? 'bg-white border-slate-200/90 text-slate-700 shadow-xs'
+                      : 'bg-black/40 border-white/[0.08] text-slate-300'
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${isLight ? 'bg-blue-500' : 'bg-cyan-400'}`} />
+                  <span className="font-medium">{ex.name}</span>
+                  <span
+                    className={`font-mono font-bold pl-0.5 ${
+                      isLight ? 'text-blue-600' : 'text-cyan-300'
+                    }`}
+                  >
+                    {ex.volume.toLocaleString()} kg
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
       {/* Expansive Interactive Graph Canvas Area (Edge-to-Edge Height)   */}
       {/* ============================================================== */}
-      <div className="relative flex-1 w-full min-h-0 mt-2 mb-0 flex flex-col justify-between overflow-hidden">
+      <div className="relative flex-1 w-full min-h-0 mt-3 mb-0 flex flex-col justify-between overflow-hidden">
         {/* Y-Axis Clean Baseline Guides (Fill vertical space) */}
         <div className="absolute inset-0 pl-14 pr-2 pt-2 pb-6 flex flex-col justify-between pointer-events-none">
           {[1, 0.75, 0.5, 0.25, 0].map((ratio, idx) => {
@@ -574,97 +654,21 @@ export const VolumeAnalyticsChart: React.FC<VolumeAnalyticsChartProps> = ({
                 </g>
               );
             })}
+
+            {/* Focal Point Vertical Crosshair Guideline (Unobstructed Top-to-Bottom) */}
+            {focalPoint && (
+              <line
+                x1={focalPoint.x}
+                y1={padding.top}
+                x2={focalPoint.x}
+                y2={padding.top + graphHeight}
+                stroke={isLight ? '#2563EB' : '#00E5FF'}
+                strokeWidth="1.5"
+                strokeDasharray="4 4"
+                strokeOpacity={isLight ? 0.35 : 0.45}
+              />
+            )}
           </svg>
-
-          {/* ============================================================== */}
-          {/* Sleek Interactive Inspection Tooltip                           */}
-          {/* ============================================================== */}
-          {focalPoint && (
-            <div
-              className={`absolute right-4 md:right-8 top-3 w-72 md:w-80 rounded-xl p-3.5 backdrop-blur-xl z-20 pointer-events-none sm:pointer-events-auto transition-colors ${
-                isLight
-                  ? 'bg-white border border-blue-200/90 shadow-[0_12px_36px_rgba(15,23,42,0.12),0_1px_3px_rgba(0,0,0,0.04)] text-slate-800'
-                  : 'bg-[#090D15]/95 border border-cyan-400/30 shadow-[0_16px_40px_rgba(0,0,0,0.65)] text-white'
-              }`}
-            >
-              <div
-                className={`flex items-center justify-between pb-2 mb-2 ${
-                  isLight ? 'border-b border-slate-100' : 'border-b border-white/[0.08]'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      isLight ? 'bg-blue-600 shadow-[0_0_6px_rgba(37,99,235,0.4)]' : 'bg-cyan-400 shadow-[0_0_8px_#00E5FF]'
-                    }`}
-                  />
-                  <span
-                    className={`text-xs font-bold tracking-wide font-mono ${
-                      isLight ? 'text-slate-900' : 'text-white'
-                    }`}
-                  >
-                    {focalPoint.data.dateStr}
-                  </span>
-                </div>
-                <span
-                  className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
-                    isLight
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                      : 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30'
-                  }`}
-                >
-                  {focalPoint.data.sessionRef.muscleSplit || 'Session'}
-                </span>
-              </div>
-
-              {/* Metric summary tag */}
-              <div
-                className={`flex items-center justify-between rounded-lg p-2 mb-2 ${
-                  isLight
-                    ? 'bg-slate-50/80 border border-slate-100'
-                    : 'bg-white/[0.03] border border-white/[0.05]'
-                }`}
-              >
-                <span className={`text-xs ${isLight ? 'text-slate-500 font-medium' : 'text-slate-400'}`}>
-                  {isAll ? 'Total Work Volume' : `Total ${selectedMuscle.shortName} Volume`}
-                </span>
-                <span
-                  className={`font-mono text-base font-bold ${
-                    isLight ? 'text-blue-600' : 'text-cyan-300'
-                  }`}
-                >
-                  {focalPoint.data.displayVolume.toLocaleString()} kg
-                </span>
-              </div>
-
-              {/* Set breakdown mini-table */}
-              <div className="flex flex-col gap-1 text-xs max-h-[130px] overflow-y-auto pr-1">
-                {focalPoint.data.exercises.length === 0 ? (
-                  <span className={`italic text-[11px] ${isLight ? 'text-slate-400' : 'text-white/40'}`}>
-                    No logged movements for this target
-                  </span>
-                ) : (
-                  focalPoint.data.exercises.map((ex, ei) => (
-                    <div
-                      key={ei}
-                      className={`flex items-center justify-between py-0.5 transition-colors ${
-                        isLight ? 'text-slate-700 hover:text-slate-900' : 'text-slate-300 hover:text-white'
-                      }`}
-                    >
-                      <span className="truncate pr-2 font-medium">• {ex.name}</span>
-                      <span
-                        className={`font-mono shrink-0 font-medium ${
-                          isLight ? 'text-blue-600 font-semibold' : 'text-cyan-300'
-                        }`}
-                      >
-                        {ex.volume.toLocaleString()} kg
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ============================================================== */}
