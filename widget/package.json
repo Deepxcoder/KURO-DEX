@@ -5,8 +5,9 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "test:drag": "electron test_drag.js",
     "build": "electron-builder --win portable",
-    "dist": "electron-builder --win nsis",
+    "dist": "electron-builder --win portable",
     "pack": "electron-builder --dir"
   },
   "keywords": [
@@ -39,6 +40,10 @@
     "portable": {
       "artifactName": "Poke-Pomo-TaskDex-Portable.exe"
     },
+    "asar": true,
+    "asarUnpack": [
+      "attach_to_desktop.py"
+    ],
     "files": [
       "main.js",
       "preload.js",
@@ -49,6 +54,8 @@
       "manager.css",
       "manager.js",
       "icon.ico",
+      "icon.png",
+      "assets/**/*",
       "attach_to_desktop.py"
     ]
   }

@@ -32,8 +32,8 @@
 }
 
 body {
-    width: 320px;
-    height: 300px;
+    width: 330px;
+    height: 420px;
     overflow: hidden;
     background: transparent;
     font-family: var(--font-sans);
@@ -65,14 +65,22 @@ body {
     align-items: center;
     border-bottom: 1px solid var(--border-dim);
     padding-bottom: 10px;
-    -webkit-app-region: drag;
     cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.manager-header:active,
+body.is-dragging,
+body.is-dragging * {
+    cursor: grabbing !important;
 }
 
 .header-brand {
     display: flex;
     align-items: center;
     gap: 8px;
+    pointer-events: none;
 }
 
 .pixel-dot {
@@ -113,13 +121,65 @@ body {
 }
 
 /* ==========================================================================
+   PATH SECTION
+   ========================================================================== */
+.path-section {
+    margin: 6px 0 2px 0;
+    -webkit-app-region: no-drag;
+}
+
+.md-path-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-dim);
+    padding: 6px 10px;
+}
+
+.path-btn {
+    background-color: #121212;
+    border: 1px solid var(--border-strong);
+    color: var(--accent-orange);
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 9px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.path-btn:hover {
+    border-color: var(--accent-orange);
+    box-shadow: 0 0 6px var(--accent-glow);
+    background-color: var(--accent-dim);
+}
+
+.path-box-wrap {
+    background-color: #0d0d0d;
+    border: 1px solid var(--border-dim);
+    border-top: none;
+    padding: 5px 8px;
+}
+
+.path-box {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-muted);
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ==========================================================================
    CONTROLS SECTION
    ========================================================================== */
 .controls-section {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin: 10px 0;
+    gap: 9px;
+    margin: 6px 0;
     -webkit-app-region: no-drag;
 }
 
@@ -129,7 +189,7 @@ body {
     align-items: center;
     background-color: var(--bg-surface);
     border: 1px solid var(--border-dim);
-    padding: 8px 10px;
+    padding: 7px 10px;
 }
 
 .control-label-wrap {

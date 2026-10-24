@@ -1,159 +1,66 @@
-```markdown
-# KuroDex (黒Dex)
-> A privacy-first, local telemetry pipeline, gaming HUD overlay, and autonomous AI accountability agent.
+# KURO-DEX (黒Dex) // Monorepo Architecture
+> A privacy-first, local telemetry pipeline, desktop gaming HUD overlay, workout web player, and autonomous productivity ecosystem.
 
 ---
 
 ## ⚡ Overview
 
-**KuroDex** is a fully offline, self-hosted productivity ecosystem built to eliminate procrastination through objective data collection. 
+**KuroDex** is a fully offline, self-hosted productivity and biometric ecosystem built to eliminate friction and track deep work objectively.
 
-Traditional productivity systems fail because they rely on self-reporting and willpower. KuroDex passively logs hardware activity across PC and mobile, cross-references physical performance metrics, and pairs an always-on-top desktop gaming HUD with an autonomous local AI coach that intervenes when you lose momentum.
-
----
-
-## 🏗️ Architecture
-
+KuroDex pairs an always-on-top desktop gaming HUD with a workout biometric web player, real-time Obsidian analytics dashboard, and local automation scripts.
 
 ```
-
-[Phone Tracker / Gym Logs] ---> Syncthing / Local Sync ---> Vault Inbox
-|
-[PC Background Daemon] ------------------------------------>   v
-[Obsidian Vault] <--- [Local LLM / Ollama]
-[Poké-Pomo & Task Dex] <--- Electron IPC ----------->          |                 |
-^                                                     v                 v
-[Widget Manager (Tray)]                                 Daily Notes      Agent Directives
-
-```
-
-* **HUD Layer:** A frameless, transparent Electron overlay ("Poké-Pomo & Task Dex") with dynamic skins, bound task timers, and instant Obsidian logging.
-* **Tray Manager:** A lightweight desktop daemon monitoring real-time CPU/RAM footprints and handling widget state toggles.
-* **Telemetry Daemons:** Silent background daemons collecting active window titles, idle states, and mobile screen usage into newline-delimited JSON (`.jsonl`).
-* **The Overseer:** A local Python agent querying an on-device LLM via Ollama to detect focus gaps and write actionable directives into daily notes.
-* **Unified Vault:** Markdown notes powered by YAML frontmatter, readable by both human eyes and machine parsers.
-
----
-
-## 📂 Vault Directory Structure
-
-```text
-KuroDex_Vault/
-├── 00_Agent/
-│   ├── _Inbox/            # Raw JSONL telemetry from PC & Phone
-│   ├── _Processing/       # Staging area for agent aggregation
-│   └── _Gym_Logs/         # Synced mobile workout Markdown/YAML files
-├── 01_Daily/              # Daily Markdown notes (YYYY-MM-DD.md)
-└── Scripts/               # Daemons, bridge scripts, and Ollama configs
-
+Syncer/
+├── widget/          # Standalone Desktop Electron HUD (Poké-Pomo & Task Dex)
+├── web-player/      # Next.js 15 Workout Web Player & Cyberpunk Biometric HUD
+├── website/         # Glassmorphic Obsidian Analytics Dashboard Website (Express + SSE)
+└── vault/           # Obsidian Vault Structure, Automation Scripts & Daily Notes
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## 📂 Subsystems & Directories
 
-* **Desktop Application:** Electron, HTML5, CSS3, Vanilla JavaScript
-* **Operating System Daemons:** Python (`psutil`, `pygetwindow`, `pynput`)
-* **Mobile Automation:** MacroDroid / Tasker
-* **Database & File Store:** Obsidian (Markdown, YAML Frontmatter, Dataview)
-* **Inference Engine:** Ollama (Qwen / Gemma local models)
-* **Synchronization:** Syncthing / Local Storage
+### 1. 🖥️ `widget/` (Desktop HUD)
+- **Role:** Always-on-top / pinned-to-desktop productivity timer and daily note task tracker ("Poké-Pomo & Task Dex").
+- **Stack:** Electron, Vanilla JS, CSS, Python ctypes desktop-pinning.
+- **Assets:** `widget/assets/` (`icon.ico`, `icon.png`).
+- **Run:** `npm run widget` or `npm --prefix widget start`
 
----
+### 2. ⚡ `web-player/` (Workout Web Player & Biometric HUD)
+- **Role:** Interactive training analytics, kinetic muscle biometric skeleton, volume graphs, and direct vault sync for `Workout.md`.
+- **Stack:** Next.js 15, React 19, Tailwind CSS v4, Lucide Icons, TypeScript.
+- **Assets:** `web-player/public/` (`icon.png`).
+- **Run Dev:** `npm run player` (runs on `http://localhost:3000`)
+- **Run Production:** `npm run player:build && npm run player:start`
 
-## 🚀 Installation & Setup
+### 3. 🌐 `website/` (Obsidian Analytics Dashboard)
+- **Role:** Glassmorphic analytics web dashboard with real-time `chokidar` file-watching, Server-Sent Events (SSE), and Vercel serverless support.
+- **Stack:** Express, Chart.js, Vanilla CSS Glassmorphism, SSE.
+- **Assets:** `website/public/` (`css/dashboard.css`, `js/app.js`, `js/gymView.js`, `js/workView.js`, `index.html`, `icon.png`).
+- **Run:** `npm run website`
 
-### 1. Prerequisites
-
-* [Node.js](https://nodejs.org/) (v18+)
-* [Python](https://www.python.org/) (3.10+)
-* [Ollama](https://ollama.com/) running locally
-* [Obsidian](https://obsidian.md/)
-
-### 2. Electron Widget & Manager
-
-```bash
-# Navigate to the widget directory
-cd src/widget
-
-# Install dependencies
-npm install electron --save-dev
-
-# Launch the widget and manager
-npm start
-
-```
-
-### 3. PC Telemetry Daemon
-
-```bash
-# Navigate to scripts directory
-cd src/scripts
-
-# Install required Python modules
-pip install psutil pygetwindow pynput requests
-
-# Run the background logger
-python pc_logger.py
-
-```
-
-### 4. Running the Agent Interrupter
-
-```bash
-# Ensure Ollama is running your target model
-ollama run qwen2.5-coder:latest
-
-# Trigger the agent evaluation loop
-python agent_bridge.py
-
-```
+### 4. 📓 `vault/` (Obsidian Vault Automation)
+- **Role:** Local daily notes, AI inbox queues, and automation utilities.
+- **Subdirectories:**
+  - `vault/00_Agent/`: Vault processing pipelines (`_Gym_Logs`, `_Inbox`, `_Processing`).
+  - `vault/01_Daily/`: Daily markdown journals (`2026-09-06.md`, etc.).
+  - `vault/Scripts/`: Python activity loggers (`pc_logger.py`, `setup_vault_structure.py`, `attach_to_desktop.py`).
 
 ---
 
-## 📝 Daily Note Protocol
+## 🚀 Quick Commands
 
-Each day, `01_Daily/YYYY-MM-DD.md` accumulates structured metrics:
-
-```markdown
----
-date: 2026-09-07
-energy_level: high
-procrastination_score: 1
----
-
-## 🎯 Active Tasks
-- [x] Train push session to failure
-- [ ] Implement Electron tray IPC bridge
-- [ ] Review daily telemetry logs
-
-## ⏱️ Focus Sessions
-- [x] **IPC Bridge Setup** — Focused for 45m (Completed at 14:30)
-- [x] **Agent Debugging** — Finished early: 20m / 45m target (Completed at 15:15)
-
-## 🏋️ Physical & Telemetry
-**Gym Session:**
-- Routine: Push Hypertrophy
-- Fuel: High-protein vegetarian (Whey-free)
-
-**System Telemetry:**
-- Active Time: 5h 10m
-- Top Process: VS Code (3h 40m)
-
----
-
-## 🧠 Agent Directives
-- **Observation:** 25-minute gap detected between focus sessions with browser in foreground.
-- **Next Action:** Close non-essential tabs. Begin next 45-minute block on IPC handlers immediately.
-
-```
+| Action | Command |
+| :--- | :--- |
+| **Launch Desktop Widget** | `npm run widget` |
+| **Start Workout Web Player (Dev)** | `npm run player` |
+| **Start Workout Web Player (Prod)** | `npm run player:start` |
+| **Build Web Player** | `npm run player:build` |
+| **Start Analytics Website** | `npm run website` |
 
 ---
 
 ## 🔒 Privacy & Offline Autonomy
 
 KuroDex operates strictly on local hardware. No activity logs, screen metrics, or health data leave your personal local network. All model inferences execute on-device through Ollama.
-
-```
-
-```

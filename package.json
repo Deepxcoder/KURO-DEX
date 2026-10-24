@@ -1,24 +1,33 @@
 {
-  "name": "syncer-productivity-widget",
+  "name": "kurodex-monorepo",
   "version": "1.0.0",
-  "description": "Minimalist Desktop Productivity Widget with Obsidian Vault IPC Integration",
-  "main": "main.js",
+  "description": "KURO-DEX Monorepo: Desktop Productivity HUD, Workout Web Player, Glassmorphic Analytics Website, and Obsidian Vault Automation",
   "scripts": {
-    "start": "electron .",
+    "widget": "npm --prefix widget start",
     "widget:start": "npm --prefix widget start",
     "widget:build": "npm --prefix widget run build",
-    "widget:dist": "npm --prefix widget run dist"
+    "widget:dist": "npm --prefix widget run dist",
+    "widget:drag": "npm --prefix widget run test:drag",
+    "player": "npm --prefix web-player run dev",
+    "player:dev": "npm --prefix web-player run dev",
+    "player:build": "npm --prefix web-player run build",
+    "player:start": "npm --prefix web-player start",
+    "web:dev": "npm --prefix web-player run dev",
+    "web:build": "npm --prefix web-player run build",
+    "web:start": "npm --prefix web-player start",
+    "website": "npm --prefix website start",
+    "website:dev": "npm --prefix website run dev",
+    "start": "npm --prefix widget start"
   },
   "keywords": [
+    "kurodex",
     "electron",
+    "nextjs",
     "obsidian",
-    "pomodoro",
     "productivity",
-    "widget"
+    "workout-analytics",
+    "cyberpunk-hud"
   ],
-  "author": "",
-  "license": "MIT",
-  "devDependencies": {
-    "electron": "^33.4.11"
-  }
+  "author": "Deepxcoder",
+  "license": "MIT"
 }

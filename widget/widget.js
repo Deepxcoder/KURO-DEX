@@ -218,10 +218,17 @@ const PokePomo = {
     // ==========================================
     async loadTasks() {
         const api = window.electronAPI || window.syncerAPI;
-        if (api && api.getObsidianTasks) {
+        if (api) {
             try {
-                const obsidianTasks = await api.getObsidianTasks();
-                if (obsidianTasks && obsidianTasks.length > 0) {
+                let obsidianTasks = null;
+                if (api.getObsidianTasks) {
+                    obsidianTasks = await api.getObsidianTasks();
+                } else if (api.getInitialData) {
+                    const data = await api.getInitialData();
+                    if (data && data.tasks) obsidianTasks = data.tasks;
+                }
+
+                if (obsidianTasks && Array.isArray(obsidianTasks)) {
                     this.state.tasks = obsidianTasks;
                     this.saveTasks();
                     this.renderTasks();
@@ -1087,21 +1094,94 @@ const PokePomo = {
             });
         }
 
-        // Live Obsidian Sync Listener
+        // Live Obsidian Sync Listeners
+        const syncTasks = (tasks) => {
+            if (tasks && Array.isArray(tasks)) {
+                this.state.tasks = tasks;
+                this.saveTasks();
+                this.renderTasks();
+                const current = this.state.tasks.find(t => t.id === this.state.activeTaskId);
+                if (!current || current.completed) {
+                    this.bindDefaultPendingTask();
+                }
+            }
+        };
+
         if (api && api.onTasksUpdated) {
-            api.onTasksUpdated((tasks) => {
-                if (tasks && Array.isArray(tasks) && tasks.length > 0) {
-                    this.state.tasks = tasks;
-                    this.saveTasks();
-                    this.renderTasks();
-                    // If current active task is no longer pending or gone, pick next
-                    const current = this.state.tasks.find(t => t.id === this.state.activeTaskId);
-                    if (!current || current.completed) {
-                        this.bindDefaultPendingTask();
-                    }
+            api.onTasksUpdated(syncTasks);
+        }
+
+        if (api && api.onFileUpdated) {
+            api.onFileUpdated((data) => {
+                if (data && Array.isArray(data.tasks)) {
+                    syncTasks(data.tasks);
                 }
             });
         }
+
+        // Initialize Native-Grade Window Dragging
+        this.bindWindowDragging();
+    },
+
+    bindWindowDragging() {
+        const api = window.electronAPI || window.syncerAPI;
+        if (!api || !api.moveWindowDelta) return;
+
+        const dragHandle = document.getElementById('drag-handle');
+        const spriteDisplay = document.getElementById('sprite-display');
+
+        const attachDrag = (el) => {
+            if (!el) return;
+            let isDragging = false;
+            let lastScreenX = 0;
+            let lastScreenY = 0;
+
+            el.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0) return;
+                // Ignore clicks on buttons, inputs, popovers, or task items
+                if (e.target.closest('button, input, select, textarea, .duration-popover, .break-popover, .dex-task-item')) {
+                    return;
+                }
+
+                isDragging = true;
+                lastScreenX = e.screenX;
+                lastScreenY = e.screenY;
+
+                try {
+                    el.setPointerCapture(e.pointerId);
+                } catch (err) {}
+                document.body.classList.add('is-dragging');
+            });
+
+            el.addEventListener('pointermove', (e) => {
+                if (!isDragging) return;
+                const dx = e.screenX - lastScreenX;
+                const dy = e.screenY - lastScreenY;
+                if (dx !== 0 || dy !== 0) {
+                    lastScreenX = e.screenX;
+                    lastScreenY = e.screenY;
+                    api.moveWindowDelta(dx, dy);
+                }
+            });
+
+            const stopDrag = (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                try {
+                    el.releasePointerCapture(e.pointerId);
+                } catch (err) {}
+                document.body.classList.remove('is-dragging');
+                if (api.saveWindowPosition) {
+                    api.saveWindowPosition();
+                }
+            };
+
+            el.addEventListener('pointerup', stopDrag);
+            el.addEventListener('pointercancel', stopDrag);
+        };
+
+        attachDrag(dragHandle);
+        attachDrag(spriteDisplay);
     }
 };
 

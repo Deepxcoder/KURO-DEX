@@ -21,6 +21,20 @@
             <button class="close-btn" id="manager-close-btn" title="Close Panel">✕</button>
         </header>
 
+        <!-- Obsidian Note Path Section -->
+        <section class="path-section">
+            <div class="control-row md-path-row">
+                <div class="control-label-wrap">
+                    <span class="control-label">Obsidian Note Path</span>
+                    <span class="control-hint">Active tasks & session log</span>
+                </div>
+                <button id="btn-change-path" class="path-btn" title="Pick Markdown File">Browse...</button>
+            </div>
+            <div class="path-box-wrap">
+                <div class="path-box" id="md-path-display" title="Click Browse to select another file">Loading...</div>
+            </div>
+        </section>
+
         <!-- Controls Section -->
         <section class="controls-section">
             <!-- 1. Widget Visibility Toggle -->
@@ -35,14 +49,26 @@
                 </label>
             </div>
 
-            <!-- 2. Pin Widget Toggle (Always on Top) -->
+            <!-- 2. Pin to Desktop Toggle (Default: Unchecked) -->
             <div class="control-row">
                 <div class="control-label-wrap">
-                    <span class="control-label">Pin Widget</span>
-                    <span class="control-hint">Always on Top</span>
+                    <span class="control-label">Pin to Desktop</span>
+                    <span class="control-hint">Stick to Desktop Background</span>
                 </div>
                 <label class="switch-wrap">
-                    <input type="checkbox" id="pin-toggle" checked>
+                    <input type="checkbox" id="desktop-pin-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <!-- 3. Always on Top Toggle (Default: Checked) -->
+            <div class="control-row">
+                <div class="control-label-wrap">
+                    <span class="control-label">Always on Top</span>
+                    <span class="control-hint">Float Above All Windows</span>
+                </div>
+                <label class="switch-wrap">
+                    <input type="checkbox" id="always-on-top-toggle" checked>
                     <span class="slider"></span>
                 </label>
             </div>

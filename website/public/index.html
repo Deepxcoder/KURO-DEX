@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KURO-DEX | Vault Analytics & Deep Work Dashboard</title>
+  <meta name="description" content="Production-ready dark minimalist glassmorphic dashboard tracking gym progressive overload and deep work focus sessions directly from Obsidian Vault markdown files.">
+  
+  <!-- Fonts: Geist / Inter + Space Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js CDN for Progressive Overload Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <!-- Ambient Atmospheric Glowing Orbs -->
+  <div class="ambient-glow" aria-hidden="true">
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+    <div class="glow-orb-3"></div>
+  </div>
+
+  <div class="app-container">
+    <!-- Floating Header & Navigation Pill -->
+    <header class="main-header">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-info">
+          <h1>KURO-DEX</h1>
+          <span>Obsidian Live Sync</span>
+        </div>
+      </div>
+
+      <!-- Center Floating Glass Pill Toggle -->
+      <nav class="nav-pill-wrapper" id="nav-toggle-wrapper" aria-label="Dashboard Views">
+        <div class="nav-slider" aria-hidden="true"></div>
+        <button class="nav-btn active" id="btn-nav-gym">
+          <span>🏋️</span> Gym Metrics
+        </button>
+        <button class="nav-btn" id="btn-nav-work">
+          <span>💻</span> Deep Work
+        </button>
+      </nav>
+
+      <!-- Live Connection Status Pill -->
+      <div class="status-pill" id="system-status-badge">
+        <div class="status-dot pulsing" id="status-dot"></div>
+        <span id="status-text">Connecting...</span>
+        <span style="color:var(--text-subtle);">|</span>
+        <span id="last-sync-time" style="color:var(--text-muted);">Syncing</span>
+      </div>
+    </header>
+
+    <!-- ====================================================================
+         VIEW 1: GYM ANALYTICS
+         ==================================================================== -->
+    <main id="gym-view" class="view-panel active">
+      <!-- Top KPI Metric Cards -->
+      <section class="metric-grid" aria-label="Gym Key Performance Indicators">
+        <div class="glass-card metric-card-gym">
+          <div class="metric-header">
+            <span class="metric-label">Weekly Tonnage</span>
+            <div class="metric-icon-wrap" style="color:var(--accent-gym);">🏋️‍♂️</div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-val amber" id="gym-weekly-tonnage">0</span>
+            <span class="metric-unit">kg</span>
+          </div>
+          <div class="metric-sub">Accumulated volume across sessions</div>
+        </div>
+
+        <div class="glass-card metric-card-gym">
+          <div class="metric-header">
+            <span class="metric-label">Volume Density</span>
+            <div class="metric-icon-wrap" style="color:#FF9100;">⚡</div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-val" id="gym-volume-density">0</span>
+            <span class="metric-unit">kg/min</span>
+          </div>
+          <div class="metric-sub">Tonnage per active minute</div>
+        </div>
+
+        <div class="glass-card metric-card-gym">
+          <div class="metric-header">
+            <span class="metric-label">Warm-Up Consistency</span>
+            <div class="metric-icon-wrap" style="color:var(--accent-green);">🧘</div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-val" id="gym-warmup-rate">0</span>
+            <span class="metric-unit">%</span>
+          </div>
+          <div class="metric-sub">Dedicated stretching sessions</div>
+        </div>
+
+        <div class="glass-card metric-card-gym">
+          <div class="metric-header">
+            <span class="metric-label">Workout Sessions</span>
+            <div class="metric-icon-wrap" style="color:var(--accent-purple);">🔥</div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-val" id="gym-total-workouts">0</span>
+            <span class="metric-unit">total</span>
+          </div>
+          <div class="metric-sub">Logged in Workout.md</div>
+        </div>
+      </section>
+
+      <!-- Progressive Overload Chart Section -->
+      <section class="glass-card chart-section" aria-label="Progressive Overload Chart">
+        <div class="chart-header">
+          <div class="section-title-wrap">
+            <h2>📈 Progressive Overload Trajectory</h2>
+            <p>Weight load (kg) & total rep volume tracked across sessions</p>
+          </div>
+          <div class="exercise-selector-wrap">
+            <label for="exercise-select" style="font-size:12px; color:var(--text-muted); font-family:var(--font-mono);">MOVEMENT:</label>
+            <select id="exercise-select" class="exercise-dropdown" aria-label="Select Exercise Movement">
+              <option value="">Loading movements...</option>
+            </select>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="overload-chart-canvas"></canvas>
+        </div>
+      </section>
+
+      <!-- Session Timeline Cards Section -->
+      <section aria-label="Workout Sessions Feed">
+        <div class="timeline-section-header">
+          <div class="section-title-wrap">
+            <h2>🗓️ Workout Session Timeline</h2>
+            <p>Date-by-date parsed workouts with intensity chip tags & raw snippet toggle</p>
+          </div>
+        </div>
+        <div class="timeline-feed" id="gym-timeline-feed">
+          <!-- Dynamically injected by gymView.js -->
+        </div>
+      </section>
+    </main>
+
+    <!-- ====================================================================
+         VIEW 2: DEEP WORK & STUDY TRACKER
+         ==================================================================== -->
+    <main id="work-view" class="view-panel">
+      <!-- Daily Focus Metric Rail -->
+      <section class="metric-grid" aria-label="Deep Work Key Indicators">
+        <div class="glass-card metric-card-work">
+          <div class="metric-header">
+            <span class="metric-label">Focus Today</span>
+            <div class="metric-icon-wrap" style="color:var(--accent-work);">⏱️</div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-val cyan" id="work-today-hours">0.0</span>
+            <span class="metric-unit">hrs</span>
+          </div>
+          <div class="metric-sub" id="work-today-sub">0 min logged today</div>
+        </div>
+
+        <div class="glass-card metric-card-work">
+          <div class="metric-header">
+            <span class="metric-label">Daily Average</span>
+            <div class="metric-icon-wrap" style="color:#00B0FF;">📊</div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-val" id="work-avg-hours">0.0</span>
+            <span class="metric-unit">hrs/day</span>
+          </div>
+          <div class="metric-sub">Mean focused hours per logged day</div>
+        </div>
+
+        <div class="glass-card metric-card-work">
+          <div class="metric-header">
+            <span class="metric-label">Total Focus Time</span>
+            <div class="metric-icon-wrap" style="color:var(--accent-purple);">🧠</div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-val" id="work-total-hours">0.0</span>
+            <span class="metric-unit">hrs</span>
+          </div>
+          <div class="metric-sub">Cumulative logged focus time</div>
+        </div>
+
+        <div class="glass-card metric-card-work">
+          <div class="metric-header">
+            <span class="metric-label">Task Completion</span>
+            <div class="metric-icon-wrap" style="color:var(--accent-green);">✅</div>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-val" id="work-completion-rate">0%</span>
+            <span class="metric-unit">done</span>
+          </div>
+          <div class="metric-sub">Ratio of completed tasks in vault</div>
+        </div>
+      </section>
+
+      <!-- Split View: Topic Leaderboard & Chronological Feed -->
+      <div class="work-grid-split">
+        <!-- Topic Leaderboard -->
+        <section class="glass-card" aria-label="Topic Breakdown">
+          <div class="section-title-wrap" style="margin-bottom:18px;">
+            <h2>🏆 Subject Breakdown & Focus Share</h2>
+            <p>Clustered topics grouped from your pomodoro logs</p>
+          </div>
+          <div class="topic-list" id="topic-leaderboard-list">
+            <!-- Dynamically injected by workView.js -->
+          </div>
+        </section>
+
+        <!-- Chronological Session Feed -->
+        <section class="glass-card" aria-label="Focus Session Timeline">
+          <div class="section-title-wrap" style="margin-bottom:18px;">
+            <h2>⏳ Chronological Focus Feed</h2>
+            <p>Recent timed study & deep work blocks</p>
+          </div>
+          <div class="work-timeline-list" id="work-session-feed">
+            <!-- Dynamically injected by workView.js -->
+          </div>
+        </section>
+      </div>
+
+      <!-- Untimed To-Do Checklist -->
+      <section class="glass-card" style="margin-top:24px;" aria-label="Operational Checklist">
+        <div class="section-title-wrap" style="margin-bottom:18px;">
+          <h2>📋 Operational Checklist (Untimed Tasks)</h2>
+          <p>Interactive check-boxes parsed from your Obsidian todo.md</p>
+        </div>
+        <div class="checklist-container" id="untimed-checklist-feed">
+          <!-- Dynamically injected by workView.js -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Main Application Script (ES Module) -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

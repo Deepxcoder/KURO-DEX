@@ -3,10 +3,24 @@
  * Poké-Pomo & Task Dex — Standalone Desktop Productivity App
  */
 
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
+
+// Single instance lock to prevent duplicate ghost processes
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+    app.quit();
+    process.exit(0);
+} else {
+    app.on('second-instance', () => {
+        if (widgetWindow && !widgetWindow.isDestroyed()) {
+            if (!widgetWindow.isVisible()) widgetWindow.show();
+            widgetWindow.focus();
+        }
+    });
+}
 
 // Establish Windows Application Identity
 app.name = 'Poké-Pomo & Task Dex';
@@ -22,13 +36,17 @@ let metricsInterval = null;
 let currentTheme = 'charizard';
 
 // ==========================================
-// 1. OBSIDIAN VAULT PATH RESOLUTION & LOGGING
+// 1. CONFIGURATION & RUNTIME STATE
 // ==========================================
+
+const CONFIG_FILE = path.join(app.getPath('userData'), 'kurodex_config.json');
 
 function findConfigPath() {
     const candidatePaths = [
         path.join(__dirname, 'config.json'),
+        path.join(__dirname, '..', 'vault', 'Scripts', 'config.json'),
         path.join(__dirname, '..', 'Scripts', 'config.json'),
+        path.join(process.cwd(), 'vault', 'Scripts', 'config.json'),
         path.join(process.cwd(), 'Scripts', 'config.json'),
         path.join(process.cwd(), 'config.json')
     ];
@@ -36,6 +54,73 @@ function findConfigPath() {
         if (fs.existsSync(p)) return p;
     }
     return null;
+}
+
+function loadConfig() {
+    try {
+        if (fs.existsSync(CONFIG_FILE)) {
+            const raw = fs.readFileSync(CONFIG_FILE, 'utf-8');
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                if (parsed.pinnedToDesktop !== undefined) isPinnedToDesktop = !!parsed.pinnedToDesktop;
+                if (parsed.alwaysOnTop !== undefined) isAlwaysOnTop = !!parsed.alwaysOnTop;
+                if (parsed.theme) currentTheme = parsed.theme;
+                return parsed;
+            }
+        }
+    } catch (err) {
+        console.error('Error reading config:', err);
+    }
+
+    // Fallback: check legacy config paths
+    const legacyPath = findConfigPath();
+    if (legacyPath) {
+        try {
+            const parsed = JSON.parse(fs.readFileSync(legacyPath, 'utf8'));
+            let mdPath = '';
+            if (parsed.paths && parsed.paths.daily_notes) {
+                const dir = path.resolve(parsed.paths.daily_notes);
+                const now = new Date();
+                const yyyy = now.getFullYear();
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                const todayFile = path.join(dir, `${yyyy}-${mm}-${dd}.md`);
+                if (fs.existsSync(todayFile)) mdPath = todayFile;
+            }
+            if (!mdPath && parsed.paths && parsed.paths.todo_folder) {
+                const todoFile = path.join(path.resolve(parsed.paths.todo_folder), 'todo.md');
+                if (fs.existsSync(todoFile)) mdPath = todoFile;
+            }
+            if (mdPath) return { mdPath };
+        } catch (e) {}
+    }
+
+    return { mdPath: '' };
+}
+
+function saveConfig(cfg) {
+    try {
+        const userDataDir = app.getPath('userData');
+        if (!fs.existsSync(userDataDir)) {
+            fs.mkdirSync(userDataDir, { recursive: true });
+        }
+        let existing = {};
+        if (fs.existsSync(CONFIG_FILE)) {
+            try {
+                existing = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8')) || {};
+            } catch (e) {}
+        }
+        const updated = {
+            ...existing,
+            ...cfg,
+            pinnedToDesktop: isPinnedToDesktop,
+            alwaysOnTop: isAlwaysOnTop,
+            theme: currentTheme
+        };
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2), 'utf-8');
+    } catch (err) {
+        console.error('Error saving config:', err);
+    }
 }
 
 function resolveObsidianDailyDir() {
@@ -58,46 +143,226 @@ function resolveObsidianDailyDir() {
         console.warn('[Config Error] Could not read daily notes path:', err.message);
     }
 
-    // Check parent repo fallback then local fallback
-    const parentDaily = path.join(__dirname, '..', '01_Daily');
-    if (fs.existsSync(parentDaily)) return parentDaily;
+    if (!app.isPackaged) {
+        const parentDaily = path.join(__dirname, '..', '01_Daily');
+        if (fs.existsSync(parentDaily)) return parentDaily;
+        const localDaily = path.join(__dirname, '01_Daily');
+        if (fs.existsSync(localDaily)) return localDaily;
+    }
 
-    const fallback = path.join(__dirname, '01_Daily');
-    if (!fs.existsSync(fallback)) fs.mkdirSync(fallback, { recursive: true });
+    const fallback = path.join(app.getPath('userData'), '01_Daily');
+    try {
+        if (!fs.existsSync(fallback)) fs.mkdirSync(fallback, { recursive: true });
+    } catch (e) {
+        console.warn('[Daily Dir Error] Could not create fallback daily dir:', e.message);
+    }
     return fallback;
 }
 
+function resolveObsidianMdPath() {
+    const config = loadConfig();
+    if (config.mdPath && fs.existsSync(config.mdPath)) {
+        return config.mdPath;
+    }
+
+    // Daily note fallback
+    const dailyDir = resolveObsidianDailyDir();
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const todayFile = path.join(dailyDir, `${yyyy}-${mm}-${dd}.md`);
+    if (fs.existsSync(todayFile)) return todayFile;
+
+    // Parent todo fallback (only outside packaged asar)
+    if (!app.isPackaged) {
+        const parentTodo = path.join(__dirname, '..', 'todo.md');
+        if (fs.existsSync(parentTodo)) return parentTodo;
+    }
+
+    // Fallback: Default tasks in userData
+    const defaultTasks = path.join(app.getPath('userData'), 'Default_Tasks.md');
+    if (!fs.existsSync(defaultTasks)) {
+        try {
+            fs.writeFileSync(defaultTasks, "# Daily\n\n## 🎯 Active Tasks\n- [ ] Example Task 1\n- [ ] Example Task 2\n\n## ⏱️ Focus Sessions\n", 'utf-8');
+        } catch (e) {}
+    }
+    return defaultTasks;
+}
+
+// ==========================================
+// 1B. LIVE OBSIDIAN DATA PARSER & WATCHER
+// ==========================================
+
+let fileWatcher = null;
+let isInternalWrite = false;
+
+function readObsidianData(filePath) {
+    if (!filePath || !fs.existsSync(filePath)) {
+        return { tasks: [], sessions: [], rawPath: filePath || '' };
+    }
+
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const lines = content.split(/\r?\n/);
+    const tasks = [];
+    const sessions = [];
+
+    let inTasksSection = false;
+    let inSessionsSection = false;
+    let hasExplicitTaskHeader = false;
+
+    // Detect if explicit header exists
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (line.startsWith('## 🎯 Active Tasks') || line.toLowerCase().startsWith('## active tasks') || line.toLowerCase() === '## tasks') {
+            hasExplicitTaskHeader = true;
+            break;
+        }
+    }
+
+    const pattern = /\s*(?:\((\d+m)\)\s*at\s*[\d:]+\s*(?:AM|PM)?|\(\d+m(?:\s*at\s*[^)]+)?\))\s*$/i;
+
+    lines.forEach((rawLine, idx) => {
+        const line = rawLine.trim();
+
+        if (line.startsWith('## 🎯 Active Tasks') || line.toLowerCase().startsWith('## active tasks') || line.toLowerCase() === '## tasks') {
+            inTasksSection = true;
+            inSessionsSection = false;
+            return;
+        } else if (line.startsWith('## ⏱️ Focus Sessions') || line.toLowerCase().startsWith('## focus sessions')) {
+            inTasksSection = false;
+            inSessionsSection = true;
+            return;
+        } else if (line.startsWith('## ') || line.startsWith('# ')) {
+            inTasksSection = false;
+            inSessionsSection = false;
+        }
+
+        if (inSessionsSection) {
+            if (line.startsWith('- [x]')) {
+                sessions.push(line.replace('- [x]', '').trim());
+            }
+        }
+
+        const isTaskCandidate = hasExplicitTaskHeader ? inTasksSection : !inSessionsSection;
+        if (isTaskCandidate) {
+            const match = line.match(/^-\s*\[([ xX])\]\s*(.*)$/);
+            if (match) {
+                const rawText = match[2].trim();
+                if (rawText.length > 0) {
+                    const baseText = rawText.replace(pattern, '').trim();
+                    const tagMatch = rawText.match(/\((\d+m)\)\s*at\s*([\d:]+\s*(?:AM|PM)?)|\((\d+m(?:\s*at\s*[^)]+)?)\)/i);
+                    let timeTag = null;
+                    if (tagMatch) {
+                        timeTag = (tagMatch[1] && tagMatch[2]) ? `${tagMatch[1]} at ${tagMatch[2]}` : (tagMatch[3] || tagMatch[1]);
+                    }
+                    tasks.push({
+                        id: `obsidian-${idx}`,
+                        lineIndex: idx,
+                        text: baseText,
+                        rawText: rawText,
+                        timeTag: timeTag,
+                        completed: match[1].toLowerCase() === 'x'
+                    });
+                }
+            }
+        }
+    });
+
+    return { tasks, sessions, rawPath: filePath };
+}
+
+function watchFile(filePath) {
+    if (fileWatcher) {
+        try { fileWatcher.close(); } catch (e) {}
+        fileWatcher = null;
+    }
+
+    if (filePath && fs.existsSync(filePath)) {
+        try {
+            fileWatcher = fs.watch(filePath, (eventType) => {
+                if (isInternalWrite) return;
+                if (eventType === 'change' || eventType === 'rename') {
+                    if (!fs.existsSync(filePath)) return;
+                    const data = readObsidianData(filePath);
+                    if (widgetWindow && !widgetWindow.isDestroyed() && widgetWindow.webContents) {
+                        widgetWindow.webContents.send('file-updated', data);
+                        widgetWindow.webContents.send('tasks-updated', data.tasks);
+                    }
+                }
+            });
+        } catch (err) {
+            console.warn('[File Watcher Error]', err.message);
+        }
+    }
+}
+
+async function promptForMdFile() {
+    const parentWin = (managerWindow && !managerWindow.isDestroyed() && managerWindow.isVisible())
+        ? managerWindow
+        : (widgetWindow && !widgetWindow.isDestroyed() ? widgetWindow : null);
+
+    const result = await dialog.showOpenDialog(parentWin || undefined, {
+        title: 'Select Daily Note or Master Markdown File',
+        properties: ['openFile'],
+        filters: [
+            { name: 'Markdown Files', extensions: ['md', 'markdown', 'txt'] },
+            { name: 'All Files', extensions: ['*'] }
+        ]
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+        const chosenPath = result.filePaths[0];
+        const config = loadConfig();
+        config.mdPath = chosenPath;
+        saveConfig(config);
+        watchFile(chosenPath);
+
+        const data = readObsidianData(chosenPath);
+        if (widgetWindow && !widgetWindow.isDestroyed() && widgetWindow.webContents) {
+            widgetWindow.webContents.send('file-updated', data);
+            widgetWindow.webContents.send('tasks-updated', data.tasks);
+        }
+        return chosenPath;
+    }
+    return null;
+}
+
+// ==========================================
+// 1C. OBSIDIAN WRITERS (Tasks & Sessions)
+// ==========================================
+
 let writeQueue = Promise.resolve();
 
-/**
- * Appends completed task or session to YYYY-MM-DD.md
- */
 async function appendObsidianSession(payload) {
     writeQueue = writeQueue.then(async () => {
-        const dailyDir = resolveObsidianDailyDir();
-        const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const dd = String(now.getDate()).padStart(2, '0');
-        const dateStr = `${yyyy}-${mm}-${dd}`;
-        const filePath = path.join(dailyDir, `${dateStr}.md`);
+        let filePath = resolveObsidianMdPath();
+        if (!filePath) {
+            const dailyDir = resolveObsidianDailyDir();
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            filePath = path.join(dailyDir, `${yyyy}-${mm}-${dd}.md`);
+        }
 
         const taskName = (payload.task || 'Focus Session').trim();
         const duration = parseInt(payload.duration || 25, 10);
         const target = parseInt(payload.target || 25, 10);
         const isEarly = !!payload.early;
-        const timeStr = payload.timestamp || now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const timeStr = payload.timestamp || (new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         const entry = isEarly
             ? `- [x] **${taskName}** — Finished early: ${duration}m / ${target}m target (Completed at ${timeStr})\n`
             : `- [x] **${taskName}** — Focused for ${duration}m (Completed at ${timeStr})\n`;
 
         try {
+            isInternalWrite = true;
             let content = '';
             if (fs.existsSync(filePath)) {
                 content = await fs.promises.readFile(filePath, 'utf8');
             } else {
-                content = `# Daily Note - ${dateStr}\n\n`;
+                content = `# Daily Note\n\n`;
             }
 
             const headerRegex = /(##\s*⏱️\s*Focus Sessions\s*\n+)/i;
@@ -109,9 +374,11 @@ async function appendObsidianSession(payload) {
             }
 
             await fs.promises.writeFile(filePath, content, 'utf8');
+            setTimeout(() => { isInternalWrite = false; }, 600);
             console.log(`[Obsidian Log] Appended: ${entry.trim()} -> ${path.basename(filePath)}`);
             return { success: true, file: filePath, entry: entry.trim() };
         } catch (err) {
+            isInternalWrite = false;
             console.error(`[Obsidian Error] Write failed:`, err);
             throw err;
         }
@@ -120,74 +387,42 @@ async function appendObsidianSession(payload) {
     return writeQueue;
 }
 
-// ==========================================
-// 1B. OBSIDIAN TODO'S READER & SYNC
-// ==========================================
+async function logPomodoroSession(logString) {
+    const filePath = resolveObsidianMdPath();
+    if (!filePath) return false;
 
-function resolveObsidianTodoPath() {
     try {
-        const configPath = findConfigPath();
-        if (configPath) {
-            const parsed = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-            if (parsed.paths && parsed.paths.todo_folder) {
-                const folder = path.resolve(parsed.paths.todo_folder);
-                if (fs.existsSync(folder)) {
-                    const todoFile = path.join(folder, 'todo.md');
-                    if (fs.existsSync(todoFile)) return todoFile;
-                    const files = fs.readdirSync(folder).filter(f => f.endsWith('.md'));
-                    if (files.length > 0) return path.join(folder, files[0]);
-                    return todoFile;
-                }
-            }
+        isInternalWrite = true;
+        let content = '';
+        if (fs.existsSync(filePath)) {
+            content = await fs.promises.readFile(filePath, 'utf8');
+        } else {
+            content = '# Tasks & Sessions\n\n';
         }
+
+        const targetHeader = '## ⏱️ Focus Sessions';
+        if (content.includes(targetHeader)) {
+            content = content.replace(targetHeader, `${targetHeader}\n${logString}`);
+        } else {
+            const trimmed = content.trimEnd();
+            content = `${trimmed}\n\n${targetHeader}\n${logString}\n`;
+        }
+
+        await fs.promises.writeFile(filePath, content, 'utf8');
+        setTimeout(() => { isInternalWrite = false; }, 600);
+        return true;
     } catch (err) {
-        console.warn('[Todo Path Error]', err.message);
+        isInternalWrite = false;
+        console.error('[Log Session Error]', err);
+        return false;
     }
-
-    const parentTodo = path.join(__dirname, '..', 'todo.md');
-    if (fs.existsSync(parentTodo)) return parentTodo;
-
-    return path.join(__dirname, 'todo.md');
 }
-
-function parseMarkdownTasks(content) {
-    const lines = content.split(/\r?\n/);
-    const tasks = [];
-    const pattern = /\s*(?:\((\d+m)\)\s*at\s*[\d:]+\s*(?:AM|PM)?|\(\d+m(?:\s*at\s*[^)]+)?\))\s*$/i;
-
-    lines.forEach((line, idx) => {
-        const match = line.match(/^-\s*\[([ xX])\]\s*(.*)$/);
-        if (match) {
-            const rawText = match[2].trim();
-            if (rawText.length > 0) {
-                const baseText = rawText.replace(pattern, '').trim();
-                const tagMatch = rawText.match(/\((\d+m)\)\s*at\s*([\d:]+\s*(?:AM|PM)?)|\((\d+m(?:\s*at\s*[^)]+)?)\)/i);
-                let timeTag = null;
-                if (tagMatch) {
-                    timeTag = (tagMatch[1] && tagMatch[2]) ? `${tagMatch[1]} at ${tagMatch[2]}` : (tagMatch[3] || tagMatch[1]);
-                }
-                tasks.push({
-                    id: `obsidian-${idx}`,
-                    lineIndex: idx,
-                    text: baseText,
-                    rawText: rawText,
-                    timeTag: timeTag,
-                    completed: match[1].toLowerCase() === 'x'
-                });
-            }
-        }
-    });
-    return tasks;
-}
-
-let isInternalTodoWrite = false;
 
 async function getObsidianTasks() {
     try {
-        const todoPath = resolveObsidianTodoPath();
-        if (!fs.existsSync(todoPath)) return [];
-        const content = await fs.promises.readFile(todoPath, 'utf8');
-        return parseMarkdownTasks(content);
+        const filePath = resolveObsidianMdPath();
+        const data = readObsidianData(filePath);
+        return data.tasks;
     } catch (err) {
         console.error('[Get Obsidian Tasks Error]', err);
         return [];
@@ -196,9 +431,9 @@ async function getObsidianTasks() {
 
 async function updateObsidianTask(taskPayload) {
     try {
-        const todoPath = resolveObsidianTodoPath();
-        if (!fs.existsSync(todoPath)) return { success: false, error: 'File not found' };
-        const content = await fs.promises.readFile(todoPath, 'utf8');
+        const filePath = resolveObsidianMdPath();
+        if (!filePath || !fs.existsSync(filePath)) return { success: false, error: 'File not found' };
+        const content = await fs.promises.readFile(filePath, 'utf8');
         const lines = content.split(/\r?\n/);
         let found = false;
 
@@ -225,32 +460,49 @@ async function updateObsidianTask(taskPayload) {
         }
 
         if (found) {
-            isInternalTodoWrite = true;
-            await fs.promises.writeFile(todoPath, lines.join('\n'), 'utf8');
-            setTimeout(() => { isInternalTodoWrite = false; }, 600);
+            isInternalWrite = true;
+            await fs.promises.writeFile(filePath, lines.join('\n'), 'utf8');
+            setTimeout(() => { isInternalWrite = false; }, 600);
         }
         return { success: true };
     } catch (err) {
+        isInternalWrite = false;
         console.error('[Update Obsidian Task Error]', err);
         return { success: false, error: err.message };
     }
 }
 
+async function saveTaskCompletion({ taskText, completed }) {
+    return await updateObsidianTask({ text: taskText, completed });
+}
+
 async function addObsidianTask(taskText) {
     try {
-        const todoPath = resolveObsidianTodoPath();
-        const line = `- [ ] ${taskText.trim()}\n`;
-        isInternalTodoWrite = true;
-        if (fs.existsSync(todoPath)) {
-            const content = await fs.promises.readFile(todoPath, 'utf8');
-            const newContent = content.endsWith('\n') ? `${content}${line}` : `${content}\n${line}`;
-            await fs.promises.writeFile(todoPath, newContent, 'utf8');
+        const filePath = resolveObsidianMdPath();
+        if (!filePath) return { success: false, error: 'No file configured' };
+        const line = `- [ ] ${taskText.trim()}`;
+        isInternalWrite = true;
+
+        let content = '';
+        if (fs.existsSync(filePath)) {
+            content = await fs.promises.readFile(filePath, 'utf8');
         } else {
-            await fs.promises.writeFile(todoPath, line, 'utf8');
+            content = '# Tasks\n\n## 🎯 Active Tasks\n';
         }
-        setTimeout(() => { isInternalTodoWrite = false; }, 600);
+
+        const headerRegex = /(##\s*🎯\s*Active Tasks[^\n]*\n)/i;
+        if (headerRegex.test(content)) {
+            content = content.replace(headerRegex, `$1${line}\n`);
+        } else {
+            const trimmed = content.trimEnd();
+            content = `${trimmed}\n${line}\n`;
+        }
+
+        await fs.promises.writeFile(filePath, content, 'utf8');
+        setTimeout(() => { isInternalWrite = false; }, 600);
         return { success: true };
     } catch (err) {
+        isInternalWrite = false;
         console.error('[Add Obsidian Task Error]', err);
         return { success: false, error: err.message };
     }
@@ -258,42 +510,30 @@ async function addObsidianTask(taskText) {
 
 async function deleteObsidianTask(taskText) {
     try {
-        const todoPath = resolveObsidianTodoPath();
-        if (!fs.existsSync(todoPath)) return { success: false };
-        const content = await fs.promises.readFile(todoPath, 'utf8');
+        const filePath = resolveObsidianMdPath();
+        if (!filePath || !fs.existsSync(filePath)) return { success: false };
+        const content = await fs.promises.readFile(filePath, 'utf8');
         const lines = content.split(/\r?\n/);
+        const pattern = /\s*(?:\(\d+m\)\s*at\s*[\d:]+\s*(?:AM|PM)?|\(\d+m(?:\s*at\s*[^)]+)?\))\s*$/i;
+        const targetClean = taskText.replace(pattern, '').trim();
+
         const filtered = lines.filter(l => {
             const match = l.match(/^-\s*\[([ xX])\]\s*(.*)$/);
-            if (match && match[2].trim() === taskText.trim()) return false;
+            if (match) {
+                const lineClean = match[2].replace(pattern, '').trim();
+                if (lineClean === targetClean) return false;
+            }
             return true;
         });
-        isInternalTodoWrite = true;
-        await fs.promises.writeFile(todoPath, filtered.join('\n'), 'utf8');
-        setTimeout(() => { isInternalTodoWrite = false; }, 600);
+
+        isInternalWrite = true;
+        await fs.promises.writeFile(filePath, filtered.join('\n'), 'utf8');
+        setTimeout(() => { isInternalWrite = false; }, 600);
         return { success: true };
     } catch (err) {
+        isInternalWrite = false;
         console.error('[Delete Obsidian Task Error]', err);
         return { success: false, error: err.message };
-    }
-}
-
-function setupTodoWatcher() {
-    try {
-        const todoPath = resolveObsidianTodoPath();
-        const dir = path.dirname(todoPath);
-        if (fs.existsSync(dir)) {
-            fs.watch(dir, async (eventType, filename) => {
-                if (isInternalTodoWrite) return;
-                if (!filename || filename.endsWith('.md')) {
-                    const tasks = await getObsidianTasks();
-                    if (widgetWindow && !widgetWindow.isDestroyed() && widgetWindow.webContents) {
-                        widgetWindow.webContents.send('tasks-updated', tasks);
-                    }
-                }
-            });
-        }
-    } catch (err) {
-        console.warn('[Todo Watcher Error]', err.message);
     }
 }
 
@@ -305,11 +545,40 @@ let isUserMinimizing = false;
 let isIntentionalHide = false;
 let isManagerActionInProgress = false;
 
+let isPinnedToDesktop = false; // Default: Float mode so user sees the widget on start
+let isAlwaysOnTop = true;     // Default: Float above all windows so timer is visible
+
+let desktopDaemonProc = null;
+
 function findAttachScript() {
+    // In packaged app, extract attach_to_desktop.py out of app.asar into userData so Python can run it
+    const userDataScript = path.join(app.getPath('userData'), 'attach_to_desktop.py');
+    try {
+        const bundledScript = path.join(__dirname, 'attach_to_desktop.py');
+        if (fs.existsSync(bundledScript)) {
+            const bundledContent = fs.readFileSync(bundledScript, 'utf8');
+            let shouldWrite = true;
+            if (fs.existsSync(userDataScript)) {
+                const existing = fs.readFileSync(userDataScript, 'utf8');
+                if (existing === bundledContent) shouldWrite = false;
+            }
+            if (shouldWrite) {
+                fs.writeFileSync(userDataScript, bundledContent, 'utf8');
+            }
+            return userDataScript;
+        }
+    } catch (e) {
+        console.warn('[Desktop Attach] Error preparing attach_to_desktop.py:', e.message);
+    }
+
+    if (fs.existsSync(userDataScript)) return userDataScript;
+
     const candidatePaths = [
+        path.join(process.resourcesPath || '', 'app.asar.unpacked', 'attach_to_desktop.py'),
         path.join(__dirname, 'attach_to_desktop.py'),
         path.join(__dirname, '..', 'Scripts', 'attach_to_desktop.py'),
-        path.join(process.cwd(), 'Scripts', 'attach_to_desktop.py')
+        path.join(process.cwd(), 'Scripts', 'attach_to_desktop.py'),
+        path.join(process.cwd(), 'widget', 'attach_to_desktop.py')
     ];
     for (const p of candidatePaths) {
         if (fs.existsSync(p)) return p;
@@ -317,49 +586,94 @@ function findAttachScript() {
     return null;
 }
 
-function attachWidgetToDesktop(win) {
+function sendDaemonCommand(cmd) {
+    if (desktopDaemonProc && !desktopDaemonProc.killed && desktopDaemonProc.stdin && desktopDaemonProc.stdin.writable) {
+        try {
+            desktopDaemonProc.stdin.write(`${cmd}\n`);
+        } catch (e) {
+            console.warn('[Daemon Command Warning]', e.message);
+        }
+    }
+}
+
+function stopDesktopDaemon() {
+    if (desktopDaemonProc) {
+        sendDaemonCommand('quit');
+        try {
+            desktopDaemonProc.kill();
+        } catch (e) {}
+        desktopDaemonProc = null;
+    }
+}
+
+function startDesktopDaemon(win) {
     if (!win || win.isDestroyed()) return;
+    stopDesktopDaemon();
     try {
         const handle = win.getNativeWindowHandle();
         const hwnd = process.arch === 'x64' ? handle.readBigInt64LE(0).toString() : handle.readInt32LE(0).toString();
         const scriptPath = findAttachScript();
-        if (!scriptPath) return;
+        if (!scriptPath) {
+            console.warn('[Desktop Attach] attach_to_desktop.py not found');
+            return;
+        }
 
-        execFile('python', [scriptPath, hwnd], (err, stdout, stderr) => {
-            if (err) {
-                console.warn('[Desktop Attach Warning]', err.message);
-            }
+        desktopDaemonProc = spawn('python', ['-u', scriptPath, hwnd], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            windowsHide: true
+        });
+
+        sendDaemonCommand(`pin ${isPinnedToDesktop ? 1 : 0}`);
+        sendDaemonCommand(`topmost ${isAlwaysOnTop ? 1 : 0}`);
+
+        desktopDaemonProc.on('error', (err) => {
+            console.warn('[Desktop Daemon Error]', err.message);
+            desktopDaemonProc = null;
+        });
+
+        desktopDaemonProc.on('exit', () => {
+            desktopDaemonProc = null;
         });
     } catch (e) {
-        console.warn('[Desktop Attach Error]', e.message);
+        console.warn('[Desktop Daemon Start Error]', e.message);
     }
 }
 
-function restoreDesktopWidget() {
-    if (!widgetWindow || widgetWindow.isDestroyed()) return;
-    if (!isWidgetPinned || isUserMinimizing || isIntentionalHide) return;
-
-    if (widgetWindow.isMinimized()) {
-        widgetWindow.restore();
+function attachWidgetToDesktop(win) {
+    if (!win || win.isDestroyed()) return;
+    if (!desktopDaemonProc) {
+        startDesktopDaemon(win);
+    } else {
+        sendDaemonCommand('pin 1');
     }
-    widgetWindow.showInactive();
-    widgetWindow.setAlwaysOnTop(true, 'screen-saver');
-    attachWidgetToDesktop(widgetWindow);
+}
+
+function detachWidgetFromDesktop(win) {
+    sendDaemonCommand('pin 0');
 }
 
 function createWidgetWindow() {
     const iconPath = path.join(__dirname, 'icon.ico');
+    const config = loadConfig();
+    let initialX, initialY;
+    if (config.windowPosition && typeof config.windowPosition.x === 'number' && typeof config.windowPosition.y === 'number') {
+        initialX = Math.round(config.windowPosition.x);
+        initialY = Math.round(config.windowPosition.y);
+    }
+
     widgetWindow = new BrowserWindow({
         title: 'Poké-Pomo & Task Dex',
         icon: fs.existsSync(iconPath) ? iconPath : undefined,
         width: 385,
         height: 231,
+        x: initialX,
+        y: initialY,
         frame: false,
         transparent: true,
-        alwaysOnTop: isWidgetPinned,
-        skipTaskbar: true,
+        alwaysOnTop: isAlwaysOnTop,
+        skipTaskbar: isPinnedToDesktop,
         resizable: false,
-        minimizable: true,
+        minimizable: false,
         backgroundColor: '#00000000',
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
@@ -370,49 +684,49 @@ function createWidgetWindow() {
         }
     });
 
-    if (isWidgetPinned) {
+    if (isAlwaysOnTop) {
         widgetWindow.setAlwaysOnTop(true, 'screen-saver');
+    } else {
+        widgetWindow.setAlwaysOnTop(false);
     }
 
     widgetWindow.loadFile(path.join(__dirname, 'widget.html'));
 
     widgetWindow.once('ready-to-show', () => {
-        attachWidgetToDesktop(widgetWindow);
+        widgetWindow.show();
+        widgetWindow.focus();
+        if (isPinnedToDesktop) {
+            attachWidgetToDesktop(widgetWindow);
+        }
     });
 
     widgetWindow.on('show', () => {
-        attachWidgetToDesktop(widgetWindow);
+        if (isPinnedToDesktop) {
+            attachWidgetToDesktop(widgetWindow);
+        }
     });
 
+    // Protect widget from being minimized during Windows "Show Desktop" (Win+D or 3-finger swipe down)
     widgetWindow.on('minimize', (e) => {
-        if (!isUserMinimizing && isWidgetPinned) {
+        if (isPinnedToDesktop && !isUserMinimizing && !isIntentionalHide) {
             e.preventDefault();
-            setTimeout(restoreDesktopWidget, 100);
-            setTimeout(restoreDesktopWidget, 250);
-            setTimeout(restoreDesktopWidget, 450);
-            setTimeout(restoreDesktopWidget, 650);
+            widgetWindow.restore();
+            widgetWindow.setAlwaysOnTop(true, 'screen-saver');
+            widgetWindow.showInactive();
         }
         isUserMinimizing = false;
     });
 
     widgetWindow.on('hide', () => {
-        if (!isIntentionalHide && isWidgetPinned) {
-            setTimeout(restoreDesktopWidget, 100);
-            setTimeout(restoreDesktopWidget, 250);
-            setTimeout(restoreDesktopWidget, 450);
-        }
-    });
-
-    widgetWindow.on('blur', () => {
-        if (!isUserMinimizing && !isIntentionalHide && isWidgetPinned) {
-            setTimeout(restoreDesktopWidget, 250);
-            setTimeout(restoreDesktopWidget, 500);
+        if (isPinnedToDesktop && !isIntentionalHide) {
+            widgetWindow.restore();
+            widgetWindow.setAlwaysOnTop(true, 'screen-saver');
+            widgetWindow.showInactive();
         }
     });
 
     widgetWindow.on('restore', () => {
-        if (isWidgetPinned) {
-            widgetWindow.setAlwaysOnTop(true, 'screen-saver');
+        if (isPinnedToDesktop) {
             attachWidgetToDesktop(widgetWindow);
         }
     });
@@ -428,6 +742,7 @@ function createWidgetWindow() {
     });
 
     widgetWindow.on('closed', () => {
+        stopDesktopDaemon();
         widgetWindow = null;
         notifyManagerWidgetVisibility();
     });
@@ -445,8 +760,8 @@ function createManagerWindow() {
     managerWindow = new BrowserWindow({
         title: 'Task Dex Manager',
         icon: fs.existsSync(iconPath) ? iconPath : undefined,
-        width: 320,
-        height: 300,
+        width: 330,
+        height: 420,
         frame: false,
         transparent: true,
         resizable: false,
@@ -500,14 +815,14 @@ function positionManagerWindow() {
     const primaryDisplay = screen.getPrimaryDisplay();
     const workArea = primaryDisplay.workArea;
 
-    let x = workArea.x + workArea.width - 330;
-    let y = workArea.y + workArea.height - 310;
+    let x = workArea.x + workArea.width - 340;
+    let y = workArea.y + workArea.height - 430;
 
     if (trayBounds && trayBounds.width > 0) {
-        x = Math.round(trayBounds.x + trayBounds.width / 2 - 160);
-        y = Math.round(trayBounds.y - 308);
+        x = Math.round(trayBounds.x + trayBounds.width / 2 - 165);
+        y = Math.round(trayBounds.y - 428);
 
-        if (x + 320 > workArea.x + workArea.width) x = workArea.x + workArea.width - 328;
+        if (x + 330 > workArea.x + workArea.width) x = workArea.x + workArea.width - 338;
         if (x < workArea.x) x = workArea.x + 8;
         if (y < workArea.y) y = workArea.y + 8;
     }
@@ -551,11 +866,16 @@ function collectResourceMetrics() {
             }
         }
 
+        const totalRamMb = Math.round(totalRamKb / 1024);
+        const widgetRamMb = Math.round(widgetRamKb / 1024);
+
         return {
             totalCpu: Math.round(totalCpu * 10) / 10,
-            totalRamMb: Math.round(totalRamKb / 1024),
+            totalRamMb: totalRamMb,
+            totalMem: totalRamMb,
             widgetCpu: Math.round(widgetCpu * 10) / 10,
-            widgetRamMb: Math.round(widgetRamKb / 1024)
+            widgetRamMb: widgetRamMb,
+            widgetMem: widgetRamMb
         };
     } catch (err) {
         console.error('[Telemetry Error]', err);
@@ -570,6 +890,7 @@ function startResourceMonitoring() {
             const data = collectResourceMetrics();
             if (data && managerWindow.webContents) {
                 managerWindow.webContents.send('resource-metrics-update', data);
+                managerWindow.webContents.send('metrics-update', data);
             }
         }
     }, 2000);
@@ -616,6 +937,12 @@ function setupSystemTray() {
                     updateContextMenu();
                 }
             },
+            {
+                label: 'Change Obsidian Note...',
+                click: async () => {
+                    await promptForMdFile();
+                }
+            },
             { type: 'separator' },
             {
                 label: 'Quit Poké-Pomo',
@@ -642,7 +969,10 @@ function setupSystemTray() {
             managerWindow.focus();
             notifyManagerWidgetVisibility();
             const metrics = collectResourceMetrics();
-            if (metrics) managerWindow.webContents.send('resource-metrics-update', metrics);
+            if (metrics && managerWindow.webContents) {
+                managerWindow.webContents.send('resource-metrics-update', metrics);
+                managerWindow.webContents.send('metrics-update', metrics);
+            }
         }
     });
 }
@@ -651,21 +981,79 @@ function setupSystemTray() {
 // 5. IPC HANDLERS
 // ==========================================
 
-let isWidgetPinned = true;
+// Obsidian Dynamic Path & Data Handlers
+ipcMain.handle('get-initial-data', () => {
+    return readObsidianData(resolveObsidianMdPath());
+});
 
-// Toggle Widget Pinning (Always on Top)
+ipcMain.handle('get-current-path', () => {
+    return resolveObsidianMdPath();
+});
+
+ipcMain.handle('pick-md-file', async () => {
+    return await promptForMdFile();
+});
+
+ipcMain.handle('save-task-completion', async (event, payload) => {
+    return await saveTaskCompletion(payload);
+});
+
+ipcMain.handle('log-pomodoro-session', async (event, logString) => {
+    return await logPomodoroSession(logString);
+});
+
+// Toggle Desktop Pinning (Stick to Desktop Background)
+ipcMain.handle('toggle-desktop-pin', (event, pinned) => {
+    isManagerActionInProgress = true;
+    setTimeout(() => { isManagerActionInProgress = false; }, 500);
+    isPinnedToDesktop = !!pinned;
+    saveConfig({ pinnedToDesktop: isPinnedToDesktop });
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+        widgetWindow.setSkipTaskbar(isPinnedToDesktop);
+        if (isPinnedToDesktop) {
+            attachWidgetToDesktop(widgetWindow);
+        } else {
+            detachWidgetFromDesktop(widgetWindow);
+        }
+    }
+    return isPinnedToDesktop;
+});
+
+ipcMain.handle('get-desktop-pinned', () => isPinnedToDesktop);
+
+// Toggle Always on Top (Float Above All Windows)
+ipcMain.handle('toggle-always-on-top', (event, onTop) => {
+    isManagerActionInProgress = true;
+    setTimeout(() => { isManagerActionInProgress = false; }, 500);
+    isAlwaysOnTop = !!onTop;
+    saveConfig({ alwaysOnTop: isAlwaysOnTop });
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+        widgetWindow.setAlwaysOnTop(isAlwaysOnTop, isAlwaysOnTop ? 'screen-saver' : 'normal');
+        sendDaemonCommand(`topmost ${isAlwaysOnTop ? 1 : 0}`);
+    }
+    return isAlwaysOnTop;
+});
+
+ipcMain.handle('get-always-on-top', () => isAlwaysOnTop);
+
+// Backward compatibility aliases
 ipcMain.handle('toggle-widget-pin', (event, pinned) => {
     isManagerActionInProgress = true;
     setTimeout(() => { isManagerActionInProgress = false; }, 500);
-    isWidgetPinned = !!pinned;
+    isPinnedToDesktop = !!pinned;
+    saveConfig({ pinnedToDesktop: isPinnedToDesktop });
     if (widgetWindow && !widgetWindow.isDestroyed()) {
-        widgetWindow.setAlwaysOnTop(isWidgetPinned, isWidgetPinned ? 'screen-saver' : 'normal');
-        if (isWidgetPinned) attachWidgetToDesktop(widgetWindow);
+        widgetWindow.setSkipTaskbar(isPinnedToDesktop);
+        if (isPinnedToDesktop) {
+            attachWidgetToDesktop(widgetWindow);
+        } else {
+            detachWidgetFromDesktop(widgetWindow);
+        }
     }
-    return isWidgetPinned;
+    return isPinnedToDesktop;
 });
 
-ipcMain.handle('get-widget-pinned', () => isWidgetPinned);
+ipcMain.handle('get-widget-pinned', () => isPinnedToDesktop);
 
 // Toggle Widget Visibility
 ipcMain.handle('toggle-widget-visibility', (event, visible) => {
@@ -676,9 +1064,14 @@ ipcMain.handle('toggle-widget-visibility', (event, visible) => {
         if (visible) createWidgetWindow();
     } else {
         if (visible) {
-            widgetWindow.showInactive();
-            if (isWidgetPinned) widgetWindow.setAlwaysOnTop(true, 'screen-saver');
-            attachWidgetToDesktop(widgetWindow);
+            widgetWindow.show();
+            widgetWindow.focus();
+            if (isAlwaysOnTop) {
+                widgetWindow.setAlwaysOnTop(true, 'screen-saver');
+            } else {
+                widgetWindow.setAlwaysOnTop(false);
+            }
+            if (isPinnedToDesktop) attachWidgetToDesktop(widgetWindow);
         } else {
             isIntentionalHide = true;
             widgetWindow.hide();
@@ -698,6 +1091,7 @@ ipcMain.handle('update-theme', (event, themeName) => {
     isManagerActionInProgress = true;
     setTimeout(() => { isManagerActionInProgress = false; }, 500);
     currentTheme = themeName || 'charizard';
+    saveConfig({ theme: currentTheme });
     if (widgetWindow && !widgetWindow.isDestroyed() && widgetWindow.webContents) {
         widgetWindow.webContents.send('theme-changed', currentTheme);
     }
@@ -756,29 +1150,109 @@ ipcMain.on('manager-close', () => {
     if (managerWindow && !managerWindow.isDestroyed()) managerWindow.hide();
 });
 
+// Window Dragging & Positioning Handlers
+ipcMain.handle('move-window-delta', (event, { dx, dy }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+        const [x, y] = win.getPosition();
+        const targetX = Math.round(x + (dx || 0));
+        const targetY = Math.round(y + (dy || 0));
+        win.setPosition(targetX, targetY);
+        return { x: targetX, y: targetY };
+    }
+    return null;
+});
+
+ipcMain.handle('set-window-position', (event, { x, y }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+        win.setPosition(Math.round(x), Math.round(y));
+        return { x: Math.round(x), y: Math.round(y) };
+    }
+    return null;
+});
+
+ipcMain.handle('get-window-position', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+        const [x, y] = win.getPosition();
+        return { x, y };
+    }
+    return null;
+});
+
+ipcMain.handle('save-window-position', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+        const [x, y] = win.getPosition();
+        if (win === widgetWindow) {
+            saveConfig({ windowPosition: { x, y } });
+        }
+        return { x, y };
+    }
+    return null;
+});
+
 // ==========================================
 // 6. APP LIFECYCLE
 // ==========================================
 
-app.whenReady().then(() => {
-    createWidgetWindow();
-    createManagerWindow();
-    setupSystemTray();
-    startResourceMonitoring();
-    setupTodoWatcher();
+app.whenReady().then(async () => {
+    try {
+        let config = loadConfig();
+
+        // If no MD path exists or file missing on first run, verify or fallback smoothly
+        if (!config.mdPath || !fs.existsSync(config.mdPath)) {
+            const dailyDir = resolveObsidianDailyDir();
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const todayFile = path.join(dailyDir, `${yyyy}-${mm}-${dd}.md`);
+
+            if (fs.existsSync(todayFile)) {
+                config.mdPath = todayFile;
+            } else {
+                const fallback = path.join(app.getPath('userData'), 'Default_Tasks.md');
+                if (!fs.existsSync(fallback)) {
+                    fs.writeFileSync(fallback, "# Daily\n\n## 🎯 Active Tasks\n- [ ] Example Task 1\n- [ ] Example Task 2\n\n## ⏱️ Focus Sessions\n", 'utf-8');
+                }
+                config.mdPath = fallback;
+            }
+            saveConfig(config);
+        }
+
+        createWidgetWindow();
+        createManagerWindow();
+        setupSystemTray();
+        startResourceMonitoring();
+
+        const activePath = config.mdPath || resolveObsidianMdPath();
+        if (activePath) {
+            watchFile(activePath);
+        }
+    } catch (err) {
+        console.error('[Startup Error]', err);
+        dialog.showErrorBox('Poké-Pomo Startup Error', err && err.message ? err.message : String(err));
+    }
 
     app.on('activate', () => {
         if (!widgetWindow || widgetWindow.isDestroyed()) {
             createWidgetWindow();
         } else {
             widgetWindow.show();
+            widgetWindow.focus();
         }
     });
 });
 
 app.on('before-quit', () => {
     isQuitting = true;
+    stopDesktopDaemon();
     if (metricsInterval) clearInterval(metricsInterval);
+    if (fileWatcher) {
+        try { fileWatcher.close(); } catch (e) {}
+    }
 });
 
 app.on('window-all-closed', () => {

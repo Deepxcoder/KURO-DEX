@@ -1,0 +1,41 @@
+{
+  // --- Antigravity Streamlined Workspace Layout ---
+  // Core Focus: Chat/Agent, Explorer, Terminal, and Git
+  // 1. Distraction-Free Editor
+  "editor.minimap.enabled": false,
+  "editor.stickyScroll.enabled": false,
+  "workbench.tree.enableStickyScroll": false,
+  "editor.renderLineHighlight": "all",
+  "editor.renderWhitespace": "selection",
+  "editor.guides.bracketPairs": true,
+  "editor.cursorBlinking": "smooth",
+  "editor.cursorSmoothCaretAnimation": "on",
+  "editor.smoothScrolling": true,
+  // 2. Clean Workbench & Navigation
+  "workbench.startupEditor": "none",
+  "workbench.tips.enabled": false,
+  "workbench.layoutControl.enabled": false,
+  "workbench.editor.enablePreview": false,
+  "window.commandCenter": true,
+  // 3. Explorer Optimization
+  "explorer.compactFolders": true,
+  "explorer.confirmDragAndDrop": false,
+  "explorer.confirmDelete": false,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/__pycache__": true
+  },
+  // 4. Integrated Terminal (Bottom Panel)
+  "workbench.panel.defaultLocation": "bottom",
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.smoothScrolling": true,
+  "terminal.integrated.cursorBlinking": true,
+  // 5. Source Control (Git)
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.enableSmartCommit": true,
+  "scm.diffDecorations": "all",
+  "scm.countBadge": "focused"
+}
